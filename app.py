@@ -1,11 +1,8 @@
 from flask import Flask, request
 from dotenv import load_dotenv
-import os
-import requests
-import json
+import os, requests, json
 
 load_dotenv()
-
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "emre123")
@@ -13,16 +10,21 @@ ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 
 IG_API = "https://graph.instagram.com/v25.0/me/messages"
 
+# Kendi Instagram business id'lerin. Echo döngüsünü kesmek için.
+OWN_IDS = {
+    "17841465752722469",
+    "27903058482613663"
+}
 
 def send_message(recipient_id, text):
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
     payload = {
         "recipient": {"id": recipient_id},
         "message": {"text": text}
+    }
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
     }
 
     r = requests.post(IG_API, headers=headers, json=payload)
@@ -33,9 +35,9 @@ def send_message(recipient_id, text):
 
 
 def cevap_uret(text):
-    text = text.lower().strip()
+    t = text.lower().strip()
 
-    if any(kelime in text for kelime in ["fiyat", "kaç", "kac", "ücret", "ucret"]):
+    if any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret"]):
         return (
             "💸 Fiyatlarımız:\n\n"
             "Havale/EFT:\n"
@@ -47,82 +49,51 @@ def cevap_uret(text):
             "🚚 81 ile ücretsiz kargo."
         )
 
-    if any(kelime in text for kelime in ["iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme", "huawei"]):
+    if any(x in t for x in ["iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme", "huawei"]):
         return (
-            "Harika 😊\n"
-            "Bu model için yardımcı olalım.\n\n"
+            "Harika 😊 Bu model için yardımcı olalım.\n\n"
             "Kılıf tasarımını seçtiniz mi, yoksa size modelleri göstereyim mi?"
         )
 
-    if any(kelime in text for kelime in ["kapıda", "kapida", "ödeme", "odeme"]):
+    if any(x in t for x in ["kapıda", "kapida", "ödeme", "odeme"]):
         return (
             "Evet kapıda ödeme mevcut 😊\n\n"
-            "Kapıda ödeme fiyatlarımız:\n"
+            "Kapıda ödeme:\n"
             "• Tek kılıf 425₺\n"
             "• 2 adet ve üzeri tanesi 345₺\n\n"
             "🚚 Kargo ücretsiz."
         )
 
-    if any(kelime in text for kelime in ["merhaba", "selam", "sa", "slm", "hello"]):
-        return (
-            "Merhaba 😊 KilifStoria'ya hoş geldiniz.\n\n"
-            "Telefon modelinizi yazar mısınız?"
-        )
+    if any(x in t for x in ["merhaba", "selam", "sa", "slm", "hello", "hi"]):
+        return "Merhaba 😊 KilifStoria'ya hoş geldiniz.\n\nTelefon modelinizi yazar mısınız?"
 
-    return (
-        "Anladım 😊\n\n"
-        "Size yardımcı olabilmem için telefon modelinizi yazar mısınız?"
-    )
+    return "Anladım 😊 Size yardımcı olabilmem için telefon modelinizi yazar mısınız?"
 
 
 @app.route("/")
 def home():
-    return """
-    <h1>Instagram Bot Çalışıyor!</h1>
-    <p>KilifStoria otomatik mesaj botu aktif.</p>
-    """
+    return "<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria bot aktif.</p>"
 
 
 @app.route("/privacy")
 def privacy():
-    return """
-    <h1>KilifStoria Gizlilik Politikası</h1>
-    <p>KilifStoria, Instagram üzerinden gelen müşteri mesajlarını yanıtlamak ve sipariş sürecini yönetmek amacıyla Meta Instagram API kullanır.</p>
-    <p>Toplanan veriler: Instagram kullanıcı ID, mesaj içeriği ve mesaj zamanı.</p>
-    <p>Bu veriler üçüncü kişilerle satılmaz veya paylaşılmaz.</p>
-    <p>Veri silme talepleri için: <b>emrelaydn02@gmail.com</b></p>
-    """
+    return "<h1>KilifStoria Gizlilik Politikası</h1><p>Veri silme talepleri: emrelaydn02@gmail.com</p>"
 
 
 @app.route("/terms")
 def terms():
-    return """
-    <h1>KilifStoria Hizmet Şartları</h1>
-    <p>Bu uygulama, Instagram mesajlarına otomatik yanıt vermek ve müşteri sipariş sürecini kolaylaştırmak amacıyla kullanılır.</p>
-    <p>Kullanıcılar mesaj göndererek otomatik yanıt sisteminden hizmet almayı kabul eder.</p>
-    <p>İletişim: <b>emrelaydn02@gmail.com</b></p>
-    """
+    return "<h1>KilifStoria Hizmet Şartları</h1><p>KilifStoria otomatik mesaj botu.</p>"
 
 
 @app.route("/data-deletion")
 def data_deletion():
-    return """
-    <h1>Veri Silme Talimatları</h1>
-    <p>KilifStoria uygulamasında saklanan verilerinizin silinmesini istiyorsanız bize e-posta gönderin.</p>
-    <p><b>E-posta:</b> emrelaydn02@gmail.com</p>
-    <p>Talebiniz en geç 30 gün içinde işleme alınır.</p>
-    """
+    return "<h1>Veri Silme Talimatları</h1><p>Veri silme talepleri: emrelaydn02@gmail.com</p>"
 
 
 @app.route("/webhook", methods=["GET"])
 def verify():
-    mode = request.args.get("hub.mode")
-    token = request.args.get("hub.verify_token")
-    challenge = request.args.get("hub.challenge")
-
-    if mode == "subscribe" and token == VERIFY_TOKEN:
-        return challenge, 200
-
+    if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.verify_token") == VERIFY_TOKEN:
+        return request.args.get("hub.challenge"), 200
     return "Forbidden", 403
 
 
@@ -130,36 +101,44 @@ def verify():
 def webhook():
     data = request.json
 
-    print("===== YENİ EVENT GELDİ =====", flush=True)
+    print("===== YENİ EVENT GELDİ / BOT V2 =====", flush=True)
     print(json.dumps(data, indent=4, ensure_ascii=False), flush=True)
 
     for entry in data.get("entry", []):
         for item in entry.get("messaging", []):
-            sender = item.get("sender", {})
+            sender_id = item.get("sender", {}).get("id")
             message = item.get("message", {})
+            text = message.get("text")
 
             if message.get("is_echo"):
-                print("Echo mesaj atlandı.", flush=True)
+                print("Echo atlandı.", flush=True)
                 continue
 
-            if sender.get("id") and message.get("text"):
-                gelen_mesaj = message.get("text")
-                cevap = cevap_uret(gelen_mesaj)
-                send_message(sender["id"], cevap)
+            if sender_id in OWN_IDS:
+                print("Kendi hesabımdan gelen event atlandı.", flush=True)
+                continue
+
+            if sender_id and text:
+                cevap = cevap_uret(text)
+                send_message(sender_id, cevap)
 
         for change in entry.get("changes", []):
             value = change.get("value", {})
-            sender = value.get("sender", {})
+            sender_id = value.get("sender", {}).get("id")
             message = value.get("message", {})
+            text = message.get("text")
 
             if message.get("is_echo"):
-                print("Echo mesaj atlandı.", flush=True)
+                print("Echo atlandı.", flush=True)
                 continue
 
-            if sender.get("id") and message.get("text"):
-                gelen_mesaj = message.get("text")
-                cevap = cevap_uret(gelen_mesaj)
-                send_message(sender["id"], cevap)
+            if sender_id in OWN_IDS:
+                print("Kendi hesabımdan gelen event atlandı.", flush=True)
+                continue
+
+            if sender_id and text:
+                cevap = cevap_uret(text)
+                send_message(sender_id, cevap)
 
     return "EVENT_RECEIVED", 200
 
