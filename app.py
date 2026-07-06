@@ -13,6 +13,18 @@ OWN_IDS = {"17841465752722469", "27903058482613663"}
 
 users = {}
 
+PHONE_WORDS = [
+    "iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno",
+    "realme", "huawei", "honor", "vivo", "infinix", "poco",
+    "galaxy", "note", "pro", "max", "plus", "a", "s"
+]
+
+DESIGN_WORDS = [
+    "sayfadaki", "sayfanızdaki", "sayfanizdaki", "tasarım", "tasarim",
+    "fotoğraf", "fotograf", "foto", "resim", "isim", "isimli",
+    "taç", "tac", "özel", "ozel", "kendi fotoğrafım", "kendi fotografim"
+]
+
 def send_message(user_id, text):
     r = requests.post(
         IG_API,
@@ -27,23 +39,39 @@ def send_message(user_id, text):
     )
     print("MESAJ SONUCU:", r.status_code, r.text, flush=True)
 
-def get_state(user_id):
+def state(user_id):
     if user_id not in users:
         users[user_id] = {
-            "model": False,
-            "istek": False,
+            "step": "new",
+            "model": None,
+            "design": None,
             "handoff": False
         }
     return users[user_id]
 
+def is_price(t):
+    return any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret", "tl", "para"])
+
+def is_cargo(t):
+    return any(x in t for x in ["kargo", "hangi firma", "firma", "ptt"])
+
+def is_delivery(t):
+    return any(x in t for x in ["kaç günde", "kac gunde", "ne zaman gelir", "teslimat", "kaç gün", "kac gun"])
+
+def is_phone_model(t):
+    return any(x in t for x in PHONE_WORDS) and len(t) >= 3
+
+def is_design(t):
+    return any(x in t for x in DESIGN_WORDS)
+
 def cevap_uret(user_id, text):
-    state = get_state(user_id)
+    s = state(user_id)
     t = text.lower().strip()
 
-    if state["handoff"]:
+    if s["handoff"]:
         return None
 
-    if any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret", "tl"]):
+    if is_price(t):
         return (
             "Fiyatlarımız şöyle 😊\n\n"
             "💸 Havale/EFT:\n"
@@ -52,33 +80,58 @@ def cevap_uret(user_id, text):
             "📦 Kapıda ödeme:\n"
             "• Tek kılıf 425₺\n"
             "• 2 adet ve üzeri tanesi 345₺\n\n"
-            "🚚 Kargo ücretsiz."
+            "🚚 Kargo ücretsiz.\n\n"
+            "Telefon modelinizi yazarsanız uygunluk konusunda da yardımcı olayım."
         )
 
-    if any(x in t for x in ["kargo", "hangi firma", "firma", "ptt"]):
-        return "Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut."
+    if is_cargo(t):
+        return "Gönderimleri PTT Kargo ile sağlıyoruz 😊 Kargo 81 ile ücretsiz."
 
-    if any(x in t for x in ["kaç günde", "ne zaman gelir", "teslimat", "kaç gün"]):
+    if is_delivery(t):
         return "Sipariş hazırlandıktan sonra teslimat genelde 2-4 iş günü içinde oluyor 😊"
 
-    if any(x in t for x in ["iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme", "huawei", "honor", "vivo"]):
-        state["model"] = True
-        if not state["istek"]:
-            return (
-                "Harika 😊 Bu model için yardımcı olabiliriz.\n\n"
-                "Nasıl bir tasarım istiyorsunuz?\n"
-                "1️⃣ Sayfamızdaki tasarımlardan mı?\n"
-                "2️⃣ Kendi fotoğrafınızla mı?\n"
-                "3️⃣ İsimli / taclı özel tasarım mı?"
-            )
+    if is_phone_model(t) and not s["model"]:
+        s["model"] = text.strip()
+        s["step"] = "model_alindi"
+        return (
+            f"Harika 😊 {text.strip()} için yardımcı olabiliriz.\n\n"
+            "Nasıl bir tasarım istiyorsunuz?\n"
+            "1️⃣ Sayfamızdaki tasarımlardan mı?\n"
+            "2️⃣ Kendi fotoğrafınızla mı?\n"
+            "3️⃣ İsimli / taclı özel tasarım mı?"
+        )
 
-    if any(x in t for x in ["sayfadaki", "sayfanızdaki", "tasarım", "fotoğraf", "fotograf", "isim", "isimli", "taç", "tac", "özel", "ozel"]):
-        state["istek"] = True
+    if is_phone_model(t) and s["model"] and not s["design"]:
+        return (
+            f"{s['model']} modelini aldım 😊\n\n"
+            "Şimdi nasıl bir tasarım istediğinizi öğrenelim:\n"
+            "1️⃣ Sayfamızdaki tasarımlardan mı?\n"
+            "2️⃣ Kendi fotoğrafınızla mı?\n"
+            "3️⃣ İsimli / taclı özel tasarım mı?"
+        )
 
-    if not state["model"]:
+    if is_design(t) or t in ["1", "2", "3"]:
+        if t == "1":
+            s["design"] = "Sayfadaki tasarımlar"
+        elif t == "2":
+            s["design"] = "Kendi fotoğrafı"
+        elif t == "3":
+            s["design"] = "İsimli / taclı özel tasarım"
+        else:
+            s["design"] = text.strip()
+
+        if not s["model"]:
+            s["step"] = "tasarim_alindi_model_bekliyor"
+            return "Çok güzel 😊 Hangi telefon modeli için olacak?"
+
+        s["handoff"] = True
+        return "Harika 😊 Bilgileri aldım. Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
+
+    if s["step"] == "new":
+        s["step"] = "model_bekliyor"
         return "Merhaba 😊 KilifStoria’ya hoş geldiniz. Hangi telefon modeli için kılıf düşünüyorsunuz?"
 
-    if state["model"] and not state["istek"]:
+    if s["model"] and not s["design"]:
         return (
             "Tamamdır 😊 Nasıl bir tasarım istiyorsunuz?\n\n"
             "1️⃣ Sayfamızdaki tasarımlardan mı?\n"
@@ -86,11 +139,7 @@ def cevap_uret(user_id, text):
             "3️⃣ İsimli / taclı özel tasarım mı?"
         )
 
-    if state["model"] and state["istek"]:
-        state["handoff"] = True
-        return "Harika 😊 Bilgileri aldım. Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
-
-    return "Anladım 😊 Size daha iyi yardımcı olabilmem için telefon modelinizi yazar mısınız?"
+    return "Anladım 😊 Telefon modelinizi ve nasıl bir tasarım istediğinizi yazarsanız yardımcı olayım."
 
 @app.route("/")
 def home():
@@ -117,7 +166,8 @@ def verify():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
-    print("===== EVENT GELDİ =====", flush=True)
+
+    print("===== EVENT GELDİ / HANDOFF BOT =====", flush=True)
     print(json.dumps(data, indent=4, ensure_ascii=False), flush=True)
 
     for entry in data.get("entry", []):
