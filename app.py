@@ -1,7 +1,7 @@
 from flask import Flask, request
 from dotenv import load_dotenv
 from openai import OpenAI
-import os, json, requests
+import os, json, requests, re
 
 load_dotenv()
 app = Flask(__name__)
@@ -13,7 +13,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 IG_API = "https://graph.instagram.com/v25.0/me/messages"
-MODEL = "gpt-4.1-mini"
 
 OWN_IDS = {"17841465752722469", "27903058482613663"}
 
@@ -24,54 +23,51 @@ Sen KilifStoria'nın Instagram DM karşılama asistanısın.
 
 Görevin:
 - Müşteriyi sıcak ve doğal karşıla.
-- Samimi sohbetle telefon modelini öğren.
-- Nasıl bir kılıf/tasarım istediğini öğren:
-  1) Sayfadaki tasarımlardan mı?
-  2) Kendi fotoğrafıyla mı?
-  3) İsimli / taclı özel tasarım mı?
-- Müşterinin aklındaki soruları doğru bilgilerle cevapla.
-- Tasarım oluşturma ve sipariş alma aşamasına geçme.
-- Yeterli bilgi alınca sohbeti işletme sahibine devret ve sonra sus.
+- Telefon modelini öğren.
+- Nasıl bir kılıf istediğini öğren.
+- Temel soruları cevapla.
+- Tasarım oluşturma, sipariş alma, adres/telefon/ad-soyad isteme.
+- Yeterli bilgi alınca konuşmayı ekip arkadaşına devret ve sus.
 
 İşletme bilgileri:
 - Tüm telefon marka ve modellerine üretim yapılır.
-- Sayfadaki iPhone 15 gibi modeller sadece örnek tasarımdır.
-- Müşteri sadece tasarımı seçer, biz kendi telefon modeline uygun hazırlarız.
+- Sayfadaki modeller sadece örnek tasarımdır.
+- Müşteri beğendiği tasarımı seçer, biz kendi cihazına uygun hazırlarız.
 - PTT Kargo ile gönderim yapılır.
 - Teslimat ortalama 4 iş günü.
 - Sipariş ertesi gün hazırlanır.
 - Ödeme seçenekleri: Havale/EFT, kapıda ödeme, Shopier.
 - Shopier: www.shopier.com/kilifstorie
-- Tasarımları görmek isteyenleri Instagram profiline veya Shopier sayfasına yönlendir.
 
 Fiyatlar:
 Havale/EFT:
-- Tek kılıf 345 TL
-- 2 adet ve üzeri tanesi 265 TL
+• Tek Kılıf 345₺
+• 2 Adet ve Üzeri 265₺ / Adet
 
-Kapıda ödeme:
-- Tek kılıf 425 TL
-- 2 adet ve üzeri tanesi 345 TL
+Kapıda Ödeme:
+• Tek Kılıf 425₺
+• 2 Adet ve Üzeri 345₺ / Adet
 
-Çok sık gelen soru:
-Müşteri “telefonuma uygun model sayfanızda yok” derse:
-“Sayfamızdaki modeller örnek tasarımdır. Tasarımı seçmeniz yeterli, biz tüm cihazlara uygun şekilde hazırlıyoruz.”
+Kargo:
+🚚 81 ile ücretsiz kargo.
+🔥 Havale ödemede en avantajlı fiyat.
+🎁 2 ve üzeri siparişlerde büyük fiyat avantajı.
 
 Konuşma tarzı:
 - Türkçe konuş.
-- Doğal, samimi, kısa yaz.
+- Samimi, sıcak, kısa ve doğal ol.
 - Robot gibi davranma.
-- Çok uzun paragraf yazma.
-- Gereksiz emoji kullanma.
+- Gereksiz uzun yazma.
 - Uydurma bilgi verme.
-- Bilmediğin soruda: “Bunu ekip arkadaşımız net kontrol edip dönüş yapsın” de.
-- Sipariş bilgisi isteme: ad, soyad, adres, telefon isteme.
-- Tasarım/sipariş aşamasına gelince devret.
+- Aynı soruyu tekrar tekrar sorma.
+- Müşteri fotoğraf gönderdiyse “fotoğrafı aldım” mantığıyla devam et.
+- Müşteri tasarım görmek isterse Instagram profiline veya Shopier’e yönlendir.
+- Müşteri “telefonuma uygun model yok” derse, modellerin örnek tasarım olduğunu ve tüm cihazlara üretim yapıldığını söyle.
 
 Devretme mesajı:
 “Harika 😊 Bilgileri aldım. Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak.”
 
-Cevabını SADECE JSON olarak ver:
+Cevabı SADECE JSON ver:
 {
   "reply": "müşteriye gönderilecek mesaj",
   "handoff": true veya false
@@ -94,55 +90,145 @@ def send_message(user_id, text):
 
 def get_user(user_id):
     if user_id not in users:
-        users[user_id] = {"history": [], "handoff": False}
+        users[user_id] = {
+            "history": [],
+            "handoff": False,
+            "model": False,
+            "design": False,
+            "photo": False,
+            "bot_replies": 0
+        }
     return users[user_id]
 
-def gpt_reply(user_id, text):
+def detect_model(text):
+    t = text.lower()
+    brands = [
+        "iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno",
+        "realme", "huawei", "honor", "vivo", "infinix", "poco",
+        "galaxy", "a55", "a54", "a34", "s23", "s24", "13", "14", "15", "16"
+    ]
+    return any(x in t for x in brands) and len(t.strip()) >= 2
+
+def detect_design(text):
+    t = text.lower()
+    words = [
+        "isim", "isimli", "taç", "tac", "taclı", "foto", "fotoğraf",
+        "fotograf", "resim", "kendi", "özel", "ozel", "sayfadaki",
+        "tasarım", "tasarim", "model", "1", "2", "3"
+    ]
+    return any(x in t for x in words)
+
+def known_answer(text):
+    t = text.lower()
+
+    if any(x in t for x in ["telefonuma uygun", "model yok", "cihazım yok", "cihazim yok", "uygun model"]):
+        return "Hiç sorun değil 😊 Sayfamızdaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı seçmeniz yeterli, biz tüm telefon marka ve modellerine uygun şekilde hazırlıyoruz. Telefon modeliniz nedir?"
+
+    if any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret", "tl", "para"]):
+        return (
+            "Fiyatlarımız şöyle 😊\n\n"
+            "💸 Havale / EFT\n"
+            "• Tek Kılıf 345₺\n"
+            "• 2 Adet ve Üzeri 265₺ / Adet\n\n"
+            "💸 Kapıda Ödeme\n"
+            "• Tek Kılıf 425₺\n"
+            "• 2 Adet ve Üzeri 345₺ / Adet\n\n"
+            "🚚 81 ile ücretsiz kargo.\n"
+            "🔥 Havale ödemede en avantajlı fiyat.\n"
+            "🎁 2 ve üzeri siparişlerde büyük fiyat avantajı."
+        )
+
+    if any(x in t for x in ["kargo", "hangi firma", "firma", "ptt"]):
+        return "Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut."
+
+    if any(x in t for x in ["kaç günde", "kac gunde", "ne zaman gelir", "teslimat", "kaç gün", "kac gun"]):
+        return "Siparişiniz ertesi gün hazırlanır. Teslimat ise ortalama 4 iş günü içerisinde gerçekleşmektedir 😊"
+
+    if any(x in t for x in ["ödeme", "odeme", "shopier", "havale", "kapıda", "kapida"]):
+        return "Ödeme seçeneklerimiz mevcut 😊 Havale/EFT, kapıda ödeme veya Shopier üzerinden güvenli ödeme yapabilirsiniz.\n\nShopier: www.shopier.com/kilifstorie"
+
+    if any(x in t for x in ["tasarımları", "tasarimlari", "modelleri", "örnek", "ornek", "nereden bak", "görmek"]):
+        return "Elbette 😊 Tasarımlarımızı Instagram profilimizden veya Shopier mağazamızdan inceleyebilirsiniz.\n\n🛍️ www.shopier.com/kilifstorie"
+
+    return None
+
+def gpt_reply(user_id, text, has_photo=False):
     user = get_user(user_id)
 
     if user["handoff"]:
         return None
 
-    user["history"].append({"role": "user", "content": text})
-    user["history"] = user["history"][-12:]
+    if has_photo:
+        user["photo"] = True
 
-    convo = ""
-    for msg in user["history"]:
-        who = "Müşteri" if msg["role"] == "user" else "KilifStoria"
-        convo += f"{who}: {msg['content']}\n"
+    if detect_model(text):
+        user["model"] = True
 
-    response = client.responses.create(
-        model=MODEL,
-        instructions=SYSTEM_PROMPT,
-        input=convo,
-        max_output_tokens=250
-    )
+    if detect_design(text):
+        user["design"] = True
 
-    raw = response.output_text.strip()
-    print("GPT RAW:", raw, flush=True)
-
-    try:
-        data = json.loads(raw)
-        reply = data.get("reply", "").strip()
-        handoff = bool(data.get("handoff", False))
-    except Exception:
-        reply = raw
+    direct = known_answer(text)
+    if direct:
+        reply = direct
         handoff = False
+    else:
+        user["history"].append({"role": "user", "content": text})
+        user["history"] = user["history"][-10:]
 
-    if not reply:
-        reply = "Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?"
+        durum = {
+            "telefon_modeli_alindi": user["model"],
+            "tasarim_istegi_alindi": user["design"],
+            "foto_geldi": user["photo"],
+            "bot_cevap_sayisi": user["bot_replies"]
+        }
 
-    user["history"].append({"role": "assistant", "content": reply})
-    user["history"] = user["history"][-12:]
+        conversation = f"Müşteri durumu: {json.dumps(durum, ensure_ascii=False)}\n\n"
+        for msg in user["history"]:
+            role = "Müşteri" if msg["role"] == "user" else "KilifStoria"
+            conversation += f"{role}: {msg['content']}\n"
+
+        if has_photo:
+            conversation += "\nMüşteri fotoğraf/görsel gönderdi. Bunu dikkate al.\n"
+
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            instructions=SYSTEM_PROMPT,
+            input=conversation,
+            max_output_tokens=220
+        )
+
+        raw = response.output_text.strip()
+        print("GPT RAW:", raw, flush=True)
+
+        try:
+            parsed = json.loads(raw)
+            reply = parsed.get("reply", "").strip()
+            handoff = bool(parsed.get("handoff", False))
+        except Exception:
+            reply = raw
+            handoff = False
+
+    user["bot_replies"] += 1
+
+    if user["model"] and user["design"]:
+        handoff = True
+        reply = "Harika 😊 Bilgileri aldım. Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
+
+    if user["bot_replies"] >= 6:
+        handoff = True
+        reply = "Harika 😊 Bilgileri aldım. Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
 
     if handoff:
         user["handoff"] = True
+
+    user["history"].append({"role": "assistant", "content": reply})
+    user["history"] = user["history"][-10:]
 
     return reply
 
 @app.route("/")
 def home():
-    return "<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria GPT karşılama botu aktif.</p>"
+    return "<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria AI karşılama botu aktif.</p>"
 
 @app.route("/privacy")
 def privacy():
@@ -165,28 +251,39 @@ def verify():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
-    print("===== EVENT GELDİ / GPT KARŞILAMA =====", flush=True)
+
+    print("===== EVENT GELDİ / KILIFSTORIA AI V2 =====", flush=True)
     print(json.dumps(data, indent=4, ensure_ascii=False), flush=True)
 
     for entry in data.get("entry", []):
         for item in entry.get("messaging", []):
             sender_id = item.get("sender", {}).get("id")
+            recipient_id = item.get("recipient", {}).get("id")
             message = item.get("message", {})
-            text = message.get("text")
 
             if message.get("is_echo"):
+                if recipient_id:
+                    get_user(recipient_id)["handoff"] = True
+                    print("Manuel cevap algılandı, müşteri bota kapatıldı.", flush=True)
                 continue
 
             if sender_id in OWN_IDS:
                 continue
 
-            if sender_id and text:
+            text = message.get("text", "")
+            attachments = message.get("attachments", [])
+            has_photo = bool(attachments)
+
+            if sender_id and (text or has_photo):
+                if not text and has_photo:
+                    text = "Müşteri fotoğraf gönderdi."
+
                 try:
-                    reply = gpt_reply(sender_id, text)
+                    reply = gpt_reply(sender_id, text, has_photo)
                     if reply:
                         send_message(sender_id, reply)
                 except Exception as e:
-                    print("GPT HATASI:", str(e), flush=True)
+                    print("BOT HATASI:", str(e), flush=True)
                     send_message(sender_id, "Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?")
 
     return "EVENT_RECEIVED", 200
