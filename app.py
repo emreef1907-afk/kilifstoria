@@ -1,25 +1,73 @@
 from flask import Flask, request
 from dotenv import load_dotenv
-import os, requests, json
+import os, json, requests, time
+from openai import OpenAI
 
 load_dotenv()
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "emre123")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 IG_API = "https://graph.instagram.com/v25.0/me/messages"
 
-# Kendi Instagram business id'lerin. Echo döngüsünü kesmek için.
 OWN_IDS = {
     "17841465752722469",
     "27903058482613663"
 }
 
+memory = {}
+
+SYSTEM_PROMPT = """
+Sen KilifStoria'nın Instagram satış danışmanısın.
+
+Tarzın:
+- Türkçe konuş.
+- Samimi, doğal, kısa ve satış odaklı ol.
+- Robot gibi uzun uzun yazma.
+- Gereksiz resmi konuşma.
+- Müşteriyi sıkmadan siparişe yönlendir.
+- Emojileri az ve doğal kullan.
+- Aynı cevabı tekrar etme.
+
+İşletme bilgileri:
+- KilifStoria telefon kılıfı satıyor.
+- Tüm telefon markaları ve modelleri için üretim yapılabiliyor.
+- Kişiye özel baskı yapılabiliyor.
+- Müşteri fotoğraf gönderebilir.
+- Türkiye'nin 81 iline ücretsiz kargo var.
+
+Fiyatlar:
+Havale/EFT:
+- Tek kılıf 345 TL
+- 2 adet ve üzeri tanesi 265 TL
+
+Kapıda ödeme:
+- Tek kılıf 425 TL
+- 2 adet ve üzeri tanesi 345 TL
+
+Satış akışı:
+1. İlk mesajda sıcak karşıla.
+2. Telefon modelini öğren.
+3. Tasarım/fotoğraf iste.
+4. Fiyat sorarsa fiyatı net söyle.
+5. Sipariş istiyorsa ad, soyad, telefon, açık adres ve ödeme tercihini iste.
+6. Emin olmayan müşteriyi nazikçe yönlendir.
+7. Bilmediğin konuda uydurma, “bunu ekip kontrol edip net bilgi verebilir” de.
+
+Asla:
+- Çok uzun paragraf yazma.
+- Müşteriye aynı soruyu tekrar tekrar sorma.
+- OpenAI, API, bot, sistem gibi teknik şeylerden bahsetme.
+"""
+
 def send_message(recipient_id, text):
     payload = {
         "recipient": {"id": recipient_id},
-        "message": {"text": text}
+        "message": {"text": text[:950]}
     }
 
     headers = {
@@ -34,45 +82,36 @@ def send_message(recipient_id, text):
     print(r.text, flush=True)
 
 
-def cevap_uret(text):
-    t = text.lower().strip()
+def gpt_cevap_uret(user_id, text):
+    if user_id not in memory:
+        memory[user_id] = []
 
-    if any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret"]):
-        return (
-            "💸 Fiyatlarımız:\n\n"
-            "Havale/EFT:\n"
-            "• Tek kılıf 345₺\n"
-            "• 2 adet ve üzeri tanesi 265₺\n\n"
-            "Kapıda ödeme:\n"
-            "• Tek kılıf 425₺\n"
-            "• 2 adet ve üzeri tanesi 345₺\n\n"
-            "🚚 81 ile ücretsiz kargo."
-        )
+    memory[user_id].append({"role": "user", "content": text})
+    memory[user_id] = memory[user_id][-12:]
 
-    if any(x in t for x in ["iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme", "huawei"]):
-        return (
-            "Harika 😊 Bu model için yardımcı olalım.\n\n"
-            "Kılıf tasarımını seçtiniz mi, yoksa size modelleri göstereyim mi?"
-        )
+    conversation = ""
+    for msg in memory[user_id]:
+        role = "Müşteri" if msg["role"] == "user" else "KilifStoria"
+        conversation += f"{role}: {msg['content']}\n"
 
-    if any(x in t for x in ["kapıda", "kapida", "ödeme", "odeme"]):
-        return (
-            "Evet kapıda ödeme mevcut 😊\n\n"
-            "Kapıda ödeme:\n"
-            "• Tek kılıf 425₺\n"
-            "• 2 adet ve üzeri tanesi 345₺\n\n"
-            "🚚 Kargo ücretsiz."
-        )
+    response = client.responses.create(
+        model="gpt-5.4-mini",
+        instructions=SYSTEM_PROMPT,
+        input=conversation,
+        max_output_tokens=220
+    )
 
-    if any(x in t for x in ["merhaba", "selam", "sa", "slm", "hello", "hi"]):
-        return "Merhaba 😊 KilifStoria'ya hoş geldiniz.\n\nTelefon modelinizi yazar mısınız?"
+    cevap = response.output_text.strip()
 
-    return "Anladım 😊 Size yardımcı olabilmem için telefon modelinizi yazar mısınız?"
+    memory[user_id].append({"role": "assistant", "content": cevap})
+    memory[user_id] = memory[user_id][-12:]
+
+    return cevap
 
 
 @app.route("/")
 def home():
-    return "<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria bot aktif.</p>"
+    return "<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria GPT satış botu aktif.</p>"
 
 
 @app.route("/privacy")
@@ -101,7 +140,7 @@ def verify():
 def webhook():
     data = request.json
 
-    print("===== YENİ EVENT GELDİ / BOT V2 =====", flush=True)
+    print("===== YENİ EVENT GELDİ / GPT BOT =====", flush=True)
     print(json.dumps(data, indent=4, ensure_ascii=False), flush=True)
 
     for entry in data.get("entry", []):
@@ -119,26 +158,12 @@ def webhook():
                 continue
 
             if sender_id and text:
-                cevap = cevap_uret(text)
-                send_message(sender_id, cevap)
-
-        for change in entry.get("changes", []):
-            value = change.get("value", {})
-            sender_id = value.get("sender", {}).get("id")
-            message = value.get("message", {})
-            text = message.get("text")
-
-            if message.get("is_echo"):
-                print("Echo atlandı.", flush=True)
-                continue
-
-            if sender_id in OWN_IDS:
-                print("Kendi hesabımdan gelen event atlandı.", flush=True)
-                continue
-
-            if sender_id and text:
-                cevap = cevap_uret(text)
-                send_message(sender_id, cevap)
+                try:
+                    cevap = gpt_cevap_uret(sender_id, text)
+                    send_message(sender_id, cevap)
+                except Exception as e:
+                    print("GPT HATASI:", str(e), flush=True)
+                    send_message(sender_id, "Şu an kısa bir yoğunluk var 😊 Telefon modelinizi yazarsanız hemen yardımcı olalım.")
 
     return "EVENT_RECEIVED", 200
 
