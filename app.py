@@ -9,7 +9,7 @@ load_dotenv()
 app = Flask(__name__)
 
 VERIFY_TOKEN = os.getenv("emre123")
-ACCESS_TOKEN = os.getenv("IGAATZBo0cEa55BZAFo0T0VsZADcwM0xBUnhnVGJZAWTVWX0dmUkhVMlh3b0dnZAjZAKOTl2dWpBbU1LWjVXeno4WkhQN1JDQV8tOG95aEdoNHlYWUFLR1pFNGI2VzlqRkNIUnRURWpXUmRxU1FseUhtVDgzVldnOEFCVHdubTE3MWloQQZDZD")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 
 IG_API = "https://graph.instagram.com/v25.0/me/messages"
 
@@ -47,7 +47,7 @@ def privacy():
     <p>KilifStoria, Instagram üzerinden gelen müşteri mesajlarını yanıtlamak ve sipariş sürecini yönetmek amacıyla Meta Instagram API kullanır.</p>
     <p>Toplanan veriler: Instagram kullanıcı ID, mesaj içeriği ve mesaj zamanı.</p>
     <p>Bu veriler üçüncü kişilerle satılmaz veya paylaşılmaz.</p>
-    <p>Veri silme talepleri için: <b>emrelaydn02@gmail.com</b></p>
+    <p>Veri silme talepleri için: <b>emrelaydno2@gmail.com</b></p>
     """
 
 
@@ -57,7 +57,7 @@ def terms():
     <h1>KilifStoria Hizmet Şartları</h1>
     <p>Bu uygulama, Instagram mesajlarına otomatik yanıt vermek ve müşteri sipariş sürecini kolaylaştırmak amacıyla kullanılır.</p>
     <p>Kullanıcılar mesaj göndererek otomatik yanıt sisteminden hizmet almayı kabul eder.</p>
-    <p>İletişim: <b>emrelaydn02@gmail.com</b></p>
+    <p>İletişim: <b>emrelaydno2@gmail.com</b></p>
     """
 
 
@@ -66,7 +66,7 @@ def data_deletion():
     return """
     <h1>Veri Silme Talimatları</h1>
     <p>KilifStoria uygulamasında saklanan verilerinizin silinmesini istiyorsanız bize e-posta gönderin.</p>
-    <p><b>E-posta:</b> emrelaydn02@gmail.com</p>
+    <p><b>E-posta:</b> emrelaydno2@gmail.com</p>
     <p>Talebiniz en geç 30 gün içinde işleme alınır.</p>
     """
 
