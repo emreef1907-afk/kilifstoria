@@ -1,23 +1,18 @@
 # KilifStoria AI V3
 
-Instagram DM karşılama botu.
+Instagram DM karşılama asistanı.
 
-## Ortam değişkenleri
-Render > Environment içinde şunlar olmalı:
-
+## Render Environment
 - ACCESS_TOKEN
 - VERIFY_TOKEN
 - OPENAI_API_KEY
+- OPENAI_MODEL (opsiyonel, varsayılan: gpt-4.1-mini)
 
-## Render komutları
-Build Command:
+## Kurulum
+Dosyaları mevcut InstagramBot klasörüne kopyalayın. .env dosyasını silmeyin.
 
-```bash
-pip install -r requirements.txt
-```
-
-Start Command:
-
-```bash
-python app.py
+```powershell
+git add .
+git commit -m "kilifstoria ai v3 pro"
+git push
 ```
