@@ -1,26 +1,16 @@
 from flask import Flask, request
-import json
-
-from config import VERIFY_TOKEN, PORT
+import os, json
+from config import VERIFY_TOKEN
+from memory import processed_mids, bot_sent_mids, remember_incoming, get_user
 from instagram import send_message
 from assistant import create_reply
-from memory import (
-    is_processed,
-    mark_processed,
-    start_processing,
-    finish_processing,
-    is_bot_sent,
-    is_recent_bot_outbound,
-    is_duplicate_inbound,
-    set_handoff,
-)
 
 app = Flask(__name__)
 
 
 @app.route('/')
 def home():
-    return '<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria AI FINAL aktif.</p>'
+    return '<h1>Instagram Bot Çalışıyor!</h1><p>KilifStoria AI Brain aktif.</p>'
 
 
 @app.route('/privacy')
@@ -47,84 +37,53 @@ def verify():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.json or {}
-    print('===== EVENT GELDİ / KILIFSTORIA AI FINAL =====', flush=True)
+    data = request.json
+    print('===== EVENT GELDİ / KILIFSTORIA AI BRAIN =====', flush=True)
     print(json.dumps(data, indent=4, ensure_ascii=False), flush=True)
 
     for entry in data.get('entry', []):
         for item in entry.get('messaging', []):
             sender_id = item.get('sender', {}).get('id')
             recipient_id = item.get('recipient', {}).get('id')
-            message = item.get('message', {}) or {}
+            message = item.get('message', {})
             mid = message.get('mid')
 
-            # Aynı mesajı ikinci kez asla işleme.
-            if mid and is_processed(mid):
-                print('Aynı MID tekrar geldi, atlandı:', mid, flush=True)
+            if mid and mid in processed_mids:
+                print('Aynı MID tekrar geldi, atlandı.', flush=True)
+                continue
+            if mid:
+                processed_mids.add(mid)
+
+            if message.get('is_echo'):
+                if mid in bot_sent_mids:
+                    print('Botun kendi echo mesajı atlandı.', flush=True)
+                    continue
+                if recipient_id:
+                    get_user(recipient_id)['handoff'] = True
+                    print(f'Manuel cevap algılandı. {recipient_id} için bot susturuldu.', flush=True)
                 continue
 
-            if mid and not start_processing(mid):
-                print('MID şu an işleniyor, atlandı:', mid, flush=True)
-                continue
+            text = message.get('text', '')
+            attachments = message.get('attachments', [])
+            has_photo = bool(attachments)
+            if not text and has_photo:
+                text = 'Müşteri fotoğraf gönderdi.'
 
-            try:
-                # Echo: hesap tarafından çıkan mesaj.
-                # Bot kendi gönderdiği mesajı echo olarak alırsa susturma.
-                # Botun gönderdiği MID değilse, bu manuel cevaptır; müşteride botu sustur.
-                text = message.get('text', '') or ''
-                attachments = message.get('attachments', []) or []
-                has_photo = bool(attachments)
-
-                if message.get('is_echo'):
-                    # Instagram botun gönderdiği mesajı echo olarak geri yollar.
-                    # Bunu manuel cevap sanmıyoruz. MID kaydı kaçarsa metin + alıcı kontrolüyle de tanıyoruz.
-                    if (mid and is_bot_sent(mid)) or (recipient_id and is_recent_bot_outbound(recipient_id, text)):
-                        print('Botun kendi echo mesajı atlandı:', mid, flush=True)
-                    else:
-                        if recipient_id:
-                            set_handoff(recipient_id, True)
-                            print(f'Manuel cevap algılandı. {recipient_id} için bot susturuldu.', flush=True)
-                    if mid:
-                        mark_processed(mid)
+            if sender_id and (text or has_photo):
+                if not remember_incoming(sender_id, text):
+                    print('Aynı içerik yakın zamanda geldi, atlandı.', flush=True)
                     continue
-
-                if not sender_id or not (text or has_photo):
-                    if mid:
-                        mark_processed(mid)
-                    continue
-
-                if not text and has_photo:
-                    text = 'Müşteri fotoğraf gönderdi.'
-
-                # Instagram bazen aynı içeriği farklı event/MID ile tekrar gönderebilir.
-                # Aynı kullanıcıdan aynı içerik 30 sn içinde geldiyse ikinciyi işlemiyoruz.
-                if is_duplicate_inbound(sender_id, text, has_photo):
-                    print('Aynı kullanıcıdan aynı içerik kısa sürede geldi, atlandı.', flush=True)
-                    if mid:
-                        mark_processed(mid)
-                    continue
-
-                reply = create_reply(sender_id, text, has_photo)
-                if reply:
-                    send_message(sender_id, reply)
-
-                if mid:
-                    mark_processed(mid)
-
-            except Exception as exc:
-                print('WEBHOOK/BOT HATASI:', str(exc), flush=True)
                 try:
-                    if sender_id:
-                        send_message(sender_id, 'Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?')
-                except Exception as send_exc:
-                    print('HATA MESAJI GÖNDERİLEMEDİ:', str(send_exc), flush=True)
-                if mid:
-                    mark_processed(mid)
-            finally:
-                finish_processing(mid)
+                    reply = create_reply(sender_id, text, has_photo)
+                    if reply:
+                        send_message(sender_id, reply)
+                except Exception as e:
+                    print('BOT HATASI:', str(e), flush=True)
+                    send_message(sender_id, 'Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?')
 
     return 'EVENT_RECEIVED', 200
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=PORT)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

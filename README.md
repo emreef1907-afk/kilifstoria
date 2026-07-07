@@ -1,20 +1,17 @@
-# KilifStoria AI FINAL SPAMFIX
+# KilifStoria AI Brain
 
-Bu sürüm spam/çift mesaj riskini azaltır:
+Modüler, spam korumalı Instagram karşılama botu.
 
-- Aynı `mid` ikinci kez işlenmez.
-- Aynı anda işlenen `mid` kilitlenir.
-- Aynı kullanıcıdan aynı içerik 30 sn içinde tekrar gelirse atlanır.
-- Aynı kullanıcıya aynı cevap 90 sn içinde tekrar gönderilmez.
-- Botun kendi echo mesajı müşteriyi susturmaz.
-- Sen manuel yazarsan müşteri için bot susturulur.
+## Kurulum
+`.env` dosyanı koru. İçinde şunlar olmalı:
 
-## Render Environment
-Gerekli:
-- `ACCESS_TOKEN`
-- `VERIFY_TOKEN`
-- `OPENAI_API_KEY`
+VERIFY_TOKEN=emre123
+ACCESS_TOKEN=IGAA...
+OPENAI_API_KEY=sk-proj-...
 
-Önerilen:
-- Render Settings Start Command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 1 --timeout 120`
-- Environment: `WEB_CONCURRENCY=1`
+## Deploy
+```powershell
+git add .
+git commit -m "kilifstoria ai brain"
+git push
+```
