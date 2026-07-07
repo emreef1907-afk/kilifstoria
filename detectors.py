@@ -37,7 +37,7 @@ def detect_phone_model(text: str) -> bool:
         return False
     if has_any(t, PHONE_WORDS):
         return True
-    # Tek başına iPhone numarası gibi yazımlar: "13", "15 pro" vb.
+    # iPhone numarası gibi yazımlar: "13", "15 pro" vb.
     if re.search(r'\b(iphone\s*)?(1[1-6]|xr|xs|se)\b', t):
         return True
     return False
@@ -53,16 +53,33 @@ def detect_no_more_questions(text: str) -> bool:
     return has_any(text, NO_MORE_WORDS)
 
 
+def _is_price_question(t: str) -> bool:
+    """Fiyat niyetini dar tutar. 'kaç gün', 'kaç günde' gibi sorular fiyat sayılmaz."""
+    if any(x in t for x in ['fiyat', 'ücret', 'ucret', 'tutar', 'maliyet']):
+        return True
+    price_patterns = [
+        r'\bne kadar\b',
+        r'\bkaça\b',
+        r'\bkaca\b',
+        r'\bkaç para\b',
+        r'\bkac para\b',
+        r'\bkaç tl\b',
+        r'\bkac tl\b',
+        r'\bkaç lira\b',
+        r'\bkac lira\b',
+    ]
+    return any(re.search(p, t) for p in price_patterns)
+
+
 def detect_intent(text: str):
     t = normalize(text)
 
+    # ÖNEMLİ: teslimat/kargo/ödeme önce kontrol edilir. Böylece "kaç gün" fiyat sanılmaz.
     if any(x in t for x in ['telefonuma uygun', 'model yok', 'cihazım yok', 'cihazim yok', 'uygun model yok']):
         return 'model_missing'
-    if any(x in t for x in ['fiyat', 'kaç', 'kac', 'ücret', 'ucret', 'tl', 'para']):
-        return 'price'
-    if any(x in t for x in ['kargo', 'hangi firma', 'ptt']):
+    if any(x in t for x in ['kargo', 'hangi firma', 'ptt', 'hızlı kargo', 'hizli kargo']):
         return 'cargo'
-    if any(x in t for x in ['teslimat', 'kaç gün', 'kac gun', 'ne zaman gelir', 'kaç günde', 'kac gunde']):
+    if any(x in t for x in ['teslimat', 'kaç gün', 'kac gun', 'ne zaman gelir', 'kaç günde', 'kac gunde', 'kaç güne', 'kac gune']):
         return 'delivery'
     if any(x in t for x in ['ödeme', 'odeme', 'shopier', 'havale', 'kapıda', 'kapida']):
         return 'payment'
@@ -74,5 +91,7 @@ def detect_intent(text: str):
         return 'location'
     if any(x in t for x in ['dolandırıcı', 'dolandirici', 'güvenilir', 'guvenilir', 'sahte']):
         return 'trust'
+    if _is_price_question(t):
+        return 'price'
 
     return None
