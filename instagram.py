@@ -1,25 +1,40 @@
-import requests, time
-from config import ACCESS_TOKEN, IG_API
-from memory import bot_sent_mids
+import random
+import time
+import requests
+from config import ACCESS_TOKEN, IG_API_URL, MAX_REPLY_CHARS, MIN_SECONDS_BETWEEN_REPLIES, MAX_SECONDS_DELAY
+from memory import remember_bot_mid, mark_reply_sent
 
 
-def send_message(user_id, text):
-    time.sleep(2)
-    r = requests.post(
-        IG_API,
+def send_message(user_id: str, text: str):
+    delay = random.randint(MIN_SECONDS_BETWEEN_REPLIES, MAX_SECONDS_DELAY)
+    print(f"Cevap gecikmesi: {delay} sn", flush=True)
+    time.sleep(delay)
+
+    payload = {
+        "recipient": {"id": user_id},
+        "message": {"text": text[:MAX_REPLY_CHARS]},
+    }
+
+    response = requests.post(
+        IG_API_URL,
         headers={
-            'Authorization': f'Bearer {ACCESS_TOKEN}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
+            "Content-Type": "application/json",
         },
-        json={'recipient': {'id': user_id}, 'message': {'text': text[:900]}}
+        json=payload,
+        timeout=20,
     )
-    print('MESAJ SONUCU:', r.status_code, r.text, flush=True)
+
+    print("MESAJ SONUCU:", response.status_code, response.text, flush=True)
+
     try:
-        data = r.json()
-        mid = data.get('message_id')
+        data = response.json()
+        mid = data.get("message_id")
         if mid:
-            bot_sent_mids.add(mid)
-            print('Bot mesaj MID kaydedildi:', mid, flush=True)
-    except Exception as e:
-        print('MID kaydedilemedi:', str(e), flush=True)
-    return r
+            remember_bot_mid(mid)
+            print("Bot mesaj MID kaydedildi:", mid, flush=True)
+    except Exception as exc:
+        print("Bot MID kaydedilemedi:", str(exc), flush=True)
+
+    mark_reply_sent(user_id, text)
+    return response

@@ -1,52 +1,109 @@
 import re
 
-MODEL_WORDS = [
-    'iphone', 'samsung', 'galaxy', 'xiaomi', 'redmi', 'oppo', 'tecno', 'realme',
-    'huawei', 'honor', 'vivo', 'reeder', 'infinix', 'poco', 'note', 'pro', 'max', 'plus', 'mini'
+MODEL_BRANDS = [
+    "iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme", "huawei",
+    "honor", "vivo", "reeder", "infinix", "poco", "galaxy", "omix", "general mobile",
+    "casper", "vestel", "gm", "note", "pro", "max", "plus", "mini", "blue max"
 ]
+
 DESIGN_WORDS = [
-    'foto', 'fotoğraf', 'fotograf', 'resim', 'kendi foto', 'isim', 'isimli',
-    'özel', 'ozel', 'sayfadaki', 'tasarım', 'tasarim', 'bunu istiyorum', 'model beğendim', 'model begendim'
+    "foto", "fotoğraf", "fotograf", "resim", "kendi foto", "görsel", "gorsel",
+    "isim", "isimli", "özel", "ozel", "sayfadaki", "tasarım", "tasarim",
+    "bunu istiyorum", "bu resim", "bu görsel", "model beğendim", "model begendim"
 ]
-NO_MORE_WORDS = ['yok', 'yoktur', 'tamam', 'olur', 'teşekkür', 'tesekkur', 'sağ ol', 'sag ol', 'anladım', 'anladim']
+
+NO_MORE_WORDS = [
+    "yok", "yoktur", "tamam", "olur", "teşekkür", "tesekkur", "sağ ol", "sag ol",
+    "anladım", "anladim", "şimdilik yok", "simdilik yok", "tamamdır", "tamamdir"
+]
+
+ORDER_WORDS = ["sipariş", "siparis", "alacağım", "alacagim", "verelim", "vericem", "istiyorum", "olsun"]
 
 
-def detect_model(text):
-    t = (text or '').lower()
-    if any(w in t for w in MODEL_WORDS):
+def normalize(text: str) -> str:
+    return (text or "").lower().strip()
+
+
+def detect_model(text: str):
+    t = normalize(text)
+    if not t:
+        return None
+    if any(word in t for word in MODEL_BRANDS):
+        return text.strip()
+    # S3 mini, A55, 15 pro gibi kısa model ifadeleri
+    if re.search(r"\b([a-z]{1,3}\s?\d{1,3}|\d{2}\s?(pro|max|plus|mini)?)\b", t):
+        return text.strip()
+    return None
+
+
+def detect_design(text: str, has_photo: bool = False):
+    if has_photo:
+        return "kendi fotoğrafı"
+    t = normalize(text)
+    if any(word in t for word in DESIGN_WORDS):
+        if "isim" in t:
+            return "isimli tasarım"
+        if "foto" in t or "resim" in t or "görsel" in t or "gorsel" in t:
+            return "kendi fotoğrafı"
+        if "sayfa" in t or "model" in t or "tasarım" in t or "tasarim" in t:
+            return "sayfadaki tasarım / özel tasarım"
+        return text.strip()
+    return None
+
+
+def is_price_question(text: str) -> bool:
+    t = normalize(text)
+    if any(phrase in t for phrase in ["fiyat", "ücret", "ucret", "ne kadar", "kaç tl", "kac tl", "kaç para", "kac para"]):
         return True
-    if re.search(r'\b(a|s|note)\s?\d{1,3}\b', t):
-        return True
+    # Sadece kaç gün / kaç günde fiyat değildir.
     return False
 
 
-def detect_design(text):
-    t = (text or '').lower()
-    return any(w in t for w in DESIGN_WORDS)
+def is_delivery_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["kaç günde", "kac gunde", "kaç gün", "kac gun", "ne zaman gelir", "teslimat", "hızlı kargo", "hizli kargo"])
 
 
-def is_no_more_questions(text):
-    t = (text or '').lower().strip()
-    return any(w in t for w in NO_MORE_WORDS)
+def is_cargo_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["kargo", "hangi firma", "ptt"])
 
 
-def quick_answer(text):
-    t = (text or '').lower()
-    if any(x in t for x in ['fiyat ne', 'ne kadar', 'kaç tl', 'kac tl', 'ücret ne', 'ucret ne', 'fiyatınız', 'fiyatiniz']):
-        from knowledge import PRICE_TEXT
-        return PRICE_TEXT
-    if any(x in t for x in ['kargo', 'hangi firma', 'ptt']):
-        return 'Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut.'
-    if any(x in t for x in ['teslimat', 'kaç gün', 'kac gun', 'ne zaman gelir', 'kaç günde', 'kac gunde']):
-        return 'Sipariş ertesi gün hazırlanır. Teslimat ortalama 4 iş günü içinde gerçekleşir 😊'
-    if any(x in t for x in ['ödeme', 'odeme', 'shopier', 'havale', 'kapıda', 'kapida']):
-        return 'Ödeme seçeneklerimiz mevcut 😊 Havale/EFT, kapıda ödeme veya Shopier üzerinden güvenli ödeme yapabilirsiniz.\n\nShopier: www.shopier.com/kilifstorie'
-    if any(x in t for x in ['kaliteli', 'baskı', 'baski', 'solma', 'silinir', 'çıkar', 'cikar']):
-        return 'Evet 😊 Baskılarımız UV / Lazer UV baskı teknolojisi ile kılıfa işleniyor. Normal kullanımda solma, silinme veya çıkma olmaz.'
-    if any(x in t for x in ['telefonuma uygun', 'model yok', 'cihazım yok', 'cihazim yok', 'uygun model yok']):
-        return 'Hiç sorun değil 😊 Sayfamızdaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı seçmeniz yeterli, biz tüm telefon marka ve modellerine uygun şekilde hazırlıyoruz.'
-    if any(x in t for x in ['tasarımları', 'tasarimlari', 'modelleri', 'nereden bak', 'görmek', 'ornek', 'örnek']):
-        return 'Elbette 😊 Tasarımlarımızı Instagram profilimizden veya Shopier mağazamızdan inceleyebilirsiniz.\n\n🛍️ www.shopier.com/kilifstorie'
-    if any(x in t for x in ['yeriniz', 'nerede', 'konum', 'mağaza', 'magaza']):
-        return "Adana'da hizmet veriyoruz 😊 Siparişleri PTT Kargo ile Türkiye'nin 81 iline ücretsiz gönderiyoruz."
-    return None
+def is_payment_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["ödeme", "odeme", "shopier", "havale", "kapıda", "kapida", "kart"])
+
+
+def is_quality_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["kaliteli", "kalite", "baskı", "baski", "solma", "silinir", "çıkar", "cikar", "uv"])
+
+
+def is_model_missing_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["telefonuma uygun", "model yok", "cihazım yok", "cihazim yok", "uygun model yok"])
+
+
+def is_design_gallery_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["tasarımları", "tasarimlari", "modelleri", "nereden bak", "görmek", "ornek", "örnek", "site", "link"])
+
+
+def is_location_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["yeriniz", "nerede", "konum", "mağaza", "magaza", "hangi şehir", "hangi sehir"])
+
+
+def is_trust_question(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ["dolandırıcı", "dolandirici", "güvenilir", "guvenilir", "sahte", "emin miyim"])
+
+
+def is_no_more_questions(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in NO_MORE_WORDS)
+
+
+def is_order_intent(text: str) -> bool:
+    t = normalize(text)
+    return any(x in t for x in ORDER_WORDS)

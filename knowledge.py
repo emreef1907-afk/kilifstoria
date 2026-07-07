@@ -1,90 +1,53 @@
-SHOPIER_URL = 'www.shopier.com/kilifstorie'
-
-BUSINESS_FACTS = {
-    'location': 'Adana',
-    'cargo_company': 'PTT Kargo',
-    'free_shipping': '81 ile ücretsiz kargo',
-    'preparation': 'Sipariş ertesi gün hazırlanır.',
-    'delivery': 'Teslimat ortalama 4 iş günü sürer.',
-    'payments': ['Havale/EFT', 'Kapıda ödeme', 'Shopier'],
-    'print_quality': 'Baskılar UV / Lazer UV baskı teknolojisi ile yapılır. Normal kullanımda solma, silinme veya çıkma olmaz.',
-    'all_models': 'Tüm telefon marka ve modellerine üretim yapılır. Sayfadaki cihazlar sadece örnek tasarımdır.',
+BUSINESS = {
+    "name": "KilifStoria",
+    "city": "Adana",
+    "cargo_company": "PTT Kargo",
+    "free_shipping": "81 ile ücretsiz kargo",
+    "preparation_time": "Sipariş ertesi gün hazırlanır",
+    "delivery_time": "Teslimat ortalama 4 iş günü içinde gerçekleşir",
+    "shopier": "www.shopier.com/kilifstorie",
+    "print_tech": "UV / Lazer UV baskı",
+    "print_quality": "Normal kullanımda solma, silinme veya çıkma olmaz",
 }
 
-PRICE_TEXT = (
-    'Fiyatlarımız şöyle 😊\n\n'
-    '💸 Havale / EFT\n'
-    '• Tek Kılıf 345₺\n'
-    '• 2 Adet ve Üzeri 265₺ / Adet\n\n'
-    '💸 Kapıda Ödeme\n'
-    '• Tek Kılıf 425₺\n'
-    '• 2 Adet ve Üzeri 345₺ / Adet\n\n'
-    '🚚 81 ile ücretsiz kargo.\n'
-    '🔥 Havale ödemede en avantajlı fiyat.'
-)
+PRICES = {
+    "havale_single": "345₺",
+    "havale_multi": "265₺ / Adet",
+    "cod_single": "425₺",
+    "cod_multi": "345₺ / Adet",
+}
 
-SYSTEM_PROMPT = f"""
-Sen KilifStoria'nın Instagram DM ön karşılama asistanısın.
+HANDOFF_MESSAGE = "Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
 
-ANA GÖREVİN:
-- Müşteriyi sıcak ve doğal karşılamak.
-- Telefon modelini öğrenmek.
-- Tasarım ihtiyacını öğrenmek: sayfadaki tasarım, kendi fotoğrafı, isimli tasarım, özel tasarım.
-- Müşterinin aklındaki soruları doğru cevaplamak.
-- Sipariş alma, adres/telefon/ad-soyad isteme, ödeme alma, IBAN verme, tasarım onayı verme.
-- Müşterinin soruları bitince sadece şu cümleyle devret: "Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak."
+PRICE_TEXT = f"""Fiyatlarımız şöyle 😊
 
-BİLGİLER:
-- Hizmet yeri: Adana.
-- Kargo: PTT Kargo.
-- 81 ile ücretsiz kargo.
-- Sipariş ertesi gün hazırlanır.
-- Teslimat ortalama 4 iş günü.
-- Ödeme: Havale/EFT, Kapıda ödeme, Shopier.
-- Shopier: {SHOPIER_URL}
-- Tüm telefon marka ve modellerine üretim yapılır.
-- Sayfadaki telefon modelleri sadece örnek tasarımdır; müşteri tasarımı seçer, biz kendi cihazına uygun hazırlarız.
-- Baskılar UV / Lazer UV baskı teknolojisi ile yapılır; normal kullanımda solma, silinme veya çıkma olmaz.
+💸 Havale / EFT
+• Tek Kılıf {PRICES['havale_single']}
+• 2 Adet ve Üzeri {PRICES['havale_multi']}
 
-FİYATLAR:
-Havale/EFT:
-• Tek Kılıf 345₺
-• 2 Adet ve Üzeri 265₺ / Adet
-Kapıda ödeme:
-• Tek Kılıf 425₺
-• 2 Adet ve Üzeri 345₺ / Adet
+💸 Kapıda Ödeme
+• Tek Kılıf {PRICES['cod_single']}
+• 2 Adet ve Üzeri {PRICES['cod_multi']}
 
-CEVAP VERMEDEN ÖNCE KENDİNE SOR:
-1. Bu mesaja bot cevap vermeli mi?
-2. Müşteri gerçekten ne soruyor?
-3. Müşteri fiyat sormadıysa fiyat verme.
-4. Kargo sormadıysa kargo anlatma.
-5. Aynı bilgiyi tekrar ediyor muyum?
-6. Cevabım müşteriyi bir adım ileri götürüyor mu?
-7. Bilmediğim bir şeyse uyduruyor muyum?
-8. Bu konuşma Emre'ye devredilmeli mi?
+🚚 81 ile ücretsiz kargo.
+🔥 Havale ödemede en avantajlı fiyat."""
 
-KONUŞMA TARZI:
-- Türkçe.
-- Kısa, doğal, samimi.
-- Maksimum 2-4 cümle.
-- Gereksiz emoji yok.
-- Robot gibi listeleme yapma; fiyat gibi zorunlu yerlerde liste olabilir.
-- Aynı cevabı tekrar etme.
-- Müşteriye form dolduruyormuş gibi davranma.
+FAQ = {
+    "cargo": "Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut.",
+    "delivery": "Sipariş ertesi gün hazırlanır. Teslimat ortalama 4 iş günü içinde gerçekleşir 😊",
+    "payment": "Ödeme seçeneklerimiz mevcut 😊 Havale/EFT, kapıda ödeme veya Shopier üzerinden güvenli ödeme yapabilirsiniz.\n\nShopier: www.shopier.com/kilifstorie",
+    "quality": "Evet 😊 Baskılarımız UV / Lazer UV baskı teknolojisi ile kılıfa işleniyor. Normal kullanımda solma, silinme veya çıkma olmaz.",
+    "model_missing": "Hiç sorun değil 😊 Sayfamızdaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı seçmeniz yeterli, biz tüm telefon marka ve modellerine uygun şekilde hazırlıyoruz.",
+    "designs": "Elbette 😊 Tasarımlarımızı Instagram profilimizden veya Shopier mağazamızdan inceleyebilirsiniz.\n\n🛍️ www.shopier.com/kilifstorie",
+    "location": "Adana'da hizmet veriyoruz 😊 Siparişleri PTT Kargo ile Türkiye'nin 81 iline ücretsiz gönderiyoruz.",
+    "trust": "Bunu sormanız çok normal 😊 Ödeme için Shopier, havale/EFT ve kapıda ödeme seçeneklerimiz mevcut. Baskılarımız UV baskı olduğu için normal kullanımda solma veya silinme yapmaz.",
+}
 
-JSON DIŞINDA HİÇBİR ŞEY YAZMA.
-Yanıt formatı:
-{{
-  "should_reply": true,
-  "reply": "müşteriye gönderilecek mesaj",
-  "handoff": false,
-  "facts": {{
-    "model": true/false,
-    "design": true/false,
-    "photo": true/false,
-    "asked_more_questions": true/false
-  }},
-  "reason": "kısa karar sebebi"
-}}
-"""
+FORBIDDEN_INTENTS = [
+    "adres isteme",
+    "telefon numarası isteme",
+    "ad soyad isteme",
+    "ödeme isteme",
+    "iban verme",
+    "sipariş alma",
+]
