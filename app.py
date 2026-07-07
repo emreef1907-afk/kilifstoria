@@ -53,10 +53,9 @@ def webhook():
 
             # Sen manuel cevap yazınca echo event gelir. Bu müşteride botu kapat.
             if message.get("is_echo"):
-                if recipient_id:
-                    mark_handoff(recipient_id)
-                    print(f"Manuel cevap algılandı. {recipient_id} için bot susturuldu.", flush=True)
-                continue
+                if message.get("is_echo"):
+    print("Bot/hesap echo mesajı geldi, atlandı. Müşteri susturulmadı.", flush=True)
+    continue
 
             if not sender_id or sender_id in OWN_IDS:
                 continue
