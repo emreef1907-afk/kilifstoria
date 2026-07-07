@@ -10,6 +10,8 @@ from memory import (
     start_processing,
     finish_processing,
     is_bot_sent,
+    is_recent_bot_outbound,
+    is_duplicate_inbound,
     set_handoff,
 )
 
@@ -69,8 +71,14 @@ def webhook():
                 # Echo: hesap tarafından çıkan mesaj.
                 # Bot kendi gönderdiği mesajı echo olarak alırsa susturma.
                 # Botun gönderdiği MID değilse, bu manuel cevaptır; müşteride botu sustur.
+                text = message.get('text', '') or ''
+                attachments = message.get('attachments', []) or []
+                has_photo = bool(attachments)
+
                 if message.get('is_echo'):
-                    if mid and is_bot_sent(mid):
+                    # Instagram botun gönderdiği mesajı echo olarak geri yollar.
+                    # Bunu manuel cevap sanmıyoruz. MID kaydı kaçarsa metin + alıcı kontrolüyle de tanıyoruz.
+                    if (mid and is_bot_sent(mid)) or (recipient_id and is_recent_bot_outbound(recipient_id, text)):
                         print('Botun kendi echo mesajı atlandı:', mid, flush=True)
                     else:
                         if recipient_id:
@@ -80,10 +88,6 @@ def webhook():
                         mark_processed(mid)
                     continue
 
-                text = message.get('text', '') or ''
-                attachments = message.get('attachments', []) or []
-                has_photo = bool(attachments)
-
                 if not sender_id or not (text or has_photo):
                     if mid:
                         mark_processed(mid)
@@ -91,6 +95,14 @@ def webhook():
 
                 if not text and has_photo:
                     text = 'Müşteri fotoğraf gönderdi.'
+
+                # Instagram bazen aynı içeriği farklı event/MID ile tekrar gönderebilir.
+                # Aynı kullanıcıdan aynı içerik 30 sn içinde geldiyse ikinciyi işlemiyoruz.
+                if is_duplicate_inbound(sender_id, text, has_photo):
+                    print('Aynı kullanıcıdan aynı içerik kısa sürede geldi, atlandı.', flush=True)
+                    if mid:
+                        mark_processed(mid)
+                    continue
 
                 reply = create_reply(sender_id, text, has_photo)
                 if reply:

@@ -1,28 +1,20 @@
-# KilifStoria AI FINAL
+# KilifStoria AI FINAL SPAMFIX
 
-Modüler Instagram DM karşılama botu.
+Bu sürüm spam/çift mesaj riskini azaltır:
 
-## Dosyalar
-- `app.py`: Flask webhook ve routing
-- `instagram.py`: Instagram mesaj gönderimi
-- `assistant.py`: GPT ve konuşma akışı
-- `knowledge.py`: fiyat, kargo, ödeme, baskı bilgileri
-- `detectors.py`: niyet/model/tasarım algılama
-- `memory.py`: müşteri hafızası, MID ve echo kontrolü
-- `config.py`: ortam değişkenleri
+- Aynı `mid` ikinci kez işlenmez.
+- Aynı anda işlenen `mid` kilitlenir.
+- Aynı kullanıcıdan aynı içerik 30 sn içinde tekrar gelirse atlanır.
+- Aynı kullanıcıya aynı cevap 90 sn içinde tekrar gönderilmez.
+- Botun kendi echo mesajı müşteriyi susturmaz.
+- Sen manuel yazarsan müşteri için bot susturulur.
 
 ## Render Environment
-Aşağıdaki değişkenler gerekli:
+Gerekli:
 - `ACCESS_TOKEN`
 - `VERIFY_TOKEN`
 - `OPENAI_API_KEY`
 
-Opsiyonel:
-- `OPENAI_MODEL` varsayılan: `gpt-4.1-mini`
-- `MAX_BOT_REPLIES` varsayılan: `5`
-
-## Önemli güvenlik
-- Aynı mesaja tek cevap verir.
-- Botun kendi echo mesajını manuel cevap sanmaz.
-- Sen manuel yazınca müşteride bot susar.
-- Maksimum 5 otomatik cevap sonrası devreder.
+Önerilen:
+- Render Settings Start Command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 1 --timeout 120`
+- Environment: `WEB_CONCURRENCY=1`
