@@ -1,61 +1,82 @@
-import time
-from config import MAX_BOT_REPLIES
+from collections import OrderedDict
+from config import MAX_TRACKED_MIDS, MAX_HISTORY_MESSAGES
 
-users = {}
-processed_mids = set()
-processing_users = set()
-
-
-def get_user(user_id: str) -> dict:
-    if user_id not in users:
-        users[user_id] = {
-            "history": [],
-            "handoff": False,
-            "model": False,
-            "design": False,
-            "photo": False,
-            "asked_more_questions": False,
-            "bot_replies": 0,
-            "last_reply_time": 0.0,
-            "created_at": time.time(),
-        }
-    return users[user_id]
+_users = {}
+_processed_mids = OrderedDict()
+_bot_sent_mids = OrderedDict()
+_processing_mids = set()
 
 
-def add_history(user_id: str, role: str, content: str) -> None:
-    user = get_user(user_id)
-    user["history"].append({"role": role, "content": content})
-    user["history"] = user["history"][-10:]
+def _remember_limited(store: OrderedDict, key: str):
+    if not key:
+        return
+    store[key] = True
+    while len(store) > MAX_TRACKED_MIDS:
+        store.popitem(last=False)
 
 
-def mark_handoff(user_id: str) -> None:
-    get_user(user_id)["handoff"] = True
+def mark_processed(mid: str):
+    _remember_limited(_processed_mids, mid)
 
 
-def is_handoff(user_id: str) -> bool:
-    return bool(get_user(user_id).get("handoff"))
+def is_processed(mid: str) -> bool:
+    return bool(mid and mid in _processed_mids)
 
 
-def can_bot_reply(user_id: str) -> bool:
-    user = get_user(user_id)
-    if user.get("handoff"):
-        return False
-    return user.get("bot_replies", 0) < MAX_BOT_REPLIES
+def mark_bot_sent(mid: str):
+    _remember_limited(_bot_sent_mids, mid)
 
 
-def register_bot_reply(user_id: str) -> None:
-    user = get_user(user_id)
-    user["bot_replies"] = user.get("bot_replies", 0) + 1
-    user["last_reply_time"] = time.time()
+def is_bot_sent(mid: str) -> bool:
+    return bool(mid and mid in _bot_sent_mids)
 
 
-def already_processed(mid: str | None) -> bool:
+def start_processing(mid: str) -> bool:
     if not mid:
-        return False
-    if mid in processed_mids:
         return True
-    processed_mids.add(mid)
-    if len(processed_mids) > 5000:
-        # Basit temizlik: hafızanın şişmesini engeller.
-        processed_mids.clear()
-    return False
+    if mid in _processing_mids:
+        return False
+    _processing_mids.add(mid)
+    return True
+
+
+def finish_processing(mid: str):
+    if mid:
+        _processing_mids.discard(mid)
+
+
+def get_user(user_id: str):
+    if user_id not in _users:
+        _users[user_id] = {
+            'history': [],
+            'handoff': False,
+            'model': False,
+            'design': False,
+            'photo': False,
+            'asked_more_questions': False,
+            'bot_replies': 0,
+            'last_reply_time': 0,
+        }
+    return _users[user_id]
+
+
+def append_history(user_id: str, role: str, content: str):
+    user = get_user(user_id)
+    user['history'].append({'role': role, 'content': content})
+    user['history'] = user['history'][-MAX_HISTORY_MESSAGES:]
+
+
+def set_handoff(user_id: str, value: bool = True):
+    get_user(user_id)['handoff'] = value
+
+
+def update_facts(user_id: str, *, model=None, design=None, photo=None, asked_more_questions=None):
+    user = get_user(user_id)
+    if model is not None:
+        user['model'] = bool(model) or user['model']
+    if design is not None:
+        user['design'] = bool(design) or user['design']
+    if photo is not None:
+        user['photo'] = bool(photo) or user['photo']
+    if asked_more_questions is not None:
+        user['asked_more_questions'] = bool(asked_more_questions) or user['asked_more_questions']

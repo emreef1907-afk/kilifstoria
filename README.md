@@ -1,18 +1,28 @@
-# KilifStoria AI V3
+# KilifStoria AI FINAL
 
-Instagram DM karşılama asistanı.
+Modüler Instagram DM karşılama botu.
+
+## Dosyalar
+- `app.py`: Flask webhook ve routing
+- `instagram.py`: Instagram mesaj gönderimi
+- `assistant.py`: GPT ve konuşma akışı
+- `knowledge.py`: fiyat, kargo, ödeme, baskı bilgileri
+- `detectors.py`: niyet/model/tasarım algılama
+- `memory.py`: müşteri hafızası, MID ve echo kontrolü
+- `config.py`: ortam değişkenleri
 
 ## Render Environment
-- ACCESS_TOKEN
-- VERIFY_TOKEN
-- OPENAI_API_KEY
-- OPENAI_MODEL (opsiyonel, varsayılan: gpt-4.1-mini)
+Aşağıdaki değişkenler gerekli:
+- `ACCESS_TOKEN`
+- `VERIFY_TOKEN`
+- `OPENAI_API_KEY`
 
-## Kurulum
-Dosyaları mevcut InstagramBot klasörüne kopyalayın. .env dosyasını silmeyin.
+Opsiyonel:
+- `OPENAI_MODEL` varsayılan: `gpt-4.1-mini`
+- `MAX_BOT_REPLIES` varsayılan: `5`
 
-```powershell
-git add .
-git commit -m "kilifstoria ai v3 pro"
-git push
-```
+## Önemli güvenlik
+- Aynı mesaja tek cevap verir.
+- Botun kendi echo mesajını manuel cevap sanmaz.
+- Sen manuel yazınca müşteride bot susar.
+- Maksimum 5 otomatik cevap sonrası devreder.

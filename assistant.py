@@ -2,140 +2,181 @@ import json
 import time
 from openai import OpenAI
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, FINAL_HANDOFF_MESSAGE, MIN_SECONDS_BETWEEN_REPLIES, MAX_BOT_REPLIES
-from knowledge import SYSTEM_PROMPT
-from memory import get_user, add_history, register_bot_reply, mark_handoff
-from detectors import has_phone_model, has_design, direct_answer, no_more_questions
+from config import OPENAI_API_KEY, OPENAI_MODEL, MAX_BOT_REPLIES
+from knowledge import BUSINESS_FACTS, DIRECT_ANSWERS, HANDOFF_MESSAGE
+from detectors import detect_phone_model, detect_design, detect_intent, detect_no_more_questions
+from memory import get_user, append_history, update_facts, set_handoff
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+SYSTEM_PROMPT = f'''
+Sen KilifStoria'nın Instagram DM karşılama asistanısın.
+
+Amacın satış kapatmak değil; müşteriyi sıcak karşılamak, gerekli bilgileri almak, aklındaki soruları cevaplamak ve doğru zamanda ekip arkadaşına devretmektir.
+
+Konuşma tarzı:
+- Türkçe konuş.
+- Kısa, sıcak, doğal ve samimi yaz.
+- Robot gibi davranma.
+- Gereksiz uzun paragraf yazma.
+- Aynı cevabı tekrar etme.
+- Uydurma bilgi verme.
+- Tek mesajda mümkünse tek ana konuya odaklan.
+
+Yapacakların:
+- Telefon modelini öğren.
+- İstenen tasarım türünü öğren: sayfadaki tasarımlardan biri, kendi fotoğrafı, isimli tasarım, özel tasarım.
+- Müşteri görsel/fotoğraf gönderirse fotoğrafı aldığını kabul et; tekrar fotoğraf isteme.
+- Müşterinin fiyat/kargo/ödeme/teslimat/baskı kalitesi gibi sorularını doğru cevapla.
+- Telefon modeli ve tasarım isteği alındıktan sonra hemen devretme; önce “Aklınıza takılan başka bir soru var mı?” gibi kısa sor.
+- Müşteri başka soru yok derse sadece devretme mesajını yaz.
+
+Asla yapma:
+- Sipariş alma.
+- Adres isteme.
+- Telefon numarası isteme.
+- Ad soyad isteme.
+- IBAN gönderme.
+- Tasarım hazırlama veya onaylama.
+- Kargo takip verme.
+
+Devretme mesajı tam olarak şudur; ek cümle ekleme:
+{HANDOFF_MESSAGE}
+
+Bilgi tabanı:
+{BUSINESS_FACTS}
+
+Yanıtını SADECE JSON olarak ver:
+{{
+  "reply": "müşteriye gönderilecek kısa mesaj",
+  "handoff": true veya false,
+  "facts": {{
+    "model": true veya false,
+    "design": true veya false,
+    "photo": true veya false,
+    "asked_more_questions": true veya false
+  }}
+}}
+'''
 
 
-def update_state(user: dict, text: str, has_photo: bool) -> None:
-    if has_photo:
-        user["photo"] = True
-        user["design"] = True
-    if has_phone_model(text):
-        user["model"] = True
-    if has_design(text):
-        user["design"] = True
+def _state_text(user_id: str):
+    user = get_user(user_id)
+    return json.dumps({
+        'telefon_modeli_alindi': user['model'],
+        'tasarim_istegi_alindi': user['design'],
+        'foto_geldi': user['photo'],
+        'aklinda_baska_soru_soruldu': user['asked_more_questions'],
+        'bot_cevap_sayisi': user['bot_replies'],
+    }, ensure_ascii=False)
 
 
-def maybe_state_followup(user: dict, base_reply: str) -> str:
-    """Bilinen cevaplardan sonra konuşmayı hedefe döndürür."""
-    if not user.get("model"):
-        return base_reply + "\n\nBu arada hangi telefon modeli için düşünüyorsunuz? 😊"
-    if not user.get("design"):
-        return base_reply + "\n\nNasıl bir tasarım düşünüyorsunuz? Sayfamızdaki tasarımlardan biri, kendi fotoğrafınız, isimli veya özel tasarım olabilir."
-    if not user.get("asked_more_questions"):
-        user["asked_more_questions"] = True
-        return base_reply + "\n\nAklınıza takılan başka bir soru var mı? 😊"
-    return base_reply
+def _direct_reply(user_id: str, text: str):
+    intent = detect_intent(text)
+    if not intent:
+        return None
 
-
-def build_conversation(user: dict, new_text: str, has_photo: bool) -> str:
-    status = {
-        "telefon_modeli_alindi": user.get("model", False),
-        "tasarim_istegi_alindi": user.get("design", False),
-        "foto_geldi": user.get("photo", False),
-        "daha_once_baska_soru_soruldu_mu": user.get("asked_more_questions", False),
-        "bot_cevap_sayisi": user.get("bot_replies", 0),
-    }
-    lines = [f"Müşteri durumu: {json.dumps(status, ensure_ascii=False)}", ""]
-    for msg in user.get("history", [])[-8:]:
-        role = "Müşteri" if msg["role"] == "user" else "KilifStoria"
-        lines.append(f"{role}: {msg['content']}")
-    lines.append(f"Müşteri: {new_text}")
-    if has_photo:
-        lines.append("Not: Müşteri fotoğraf/görsel gönderdi. Bunu gönderilmiş kabul et.")
-    return "\n".join(lines)
-
-
-def generate_reply(user_id: str, text: str, has_photo: bool = False) -> str | None:
+    reply = DIRECT_ANSWERS[intent]
     user = get_user(user_id)
 
-    if user.get("handoff"):
+    # Direkt cevaplardan sonra konuşmayı amaca döndür.
+    if not user['model'] and intent not in ['model_missing']:
+        reply += '\n\nBu arada hangi telefon modeli için düşünüyorsunuz? 😊'
+    elif user['model'] and not user['design'] and intent not in ['designs']:
+        reply += '\n\nNasıl bir tasarım düşünüyorsunuz; sayfadaki tasarımlardan biri mi, kendi fotoğrafınız mı, isimli ya da özel tasarım mı?'
+    elif user['model'] and user['design'] and not user['asked_more_questions']:
+        user['asked_more_questions'] = True
+        reply += '\n\nAklınıza takılan başka bir soru var mı? 😊'
+
+    return reply
+
+
+def create_reply(user_id: str, text: str, has_photo: bool = False):
+    user = get_user(user_id)
+
+    if user['handoff']:
+        print('Kullanıcı devredilmiş, cevap yok:', user_id, flush=True)
         return None
 
-    if user.get("bot_replies", 0) >= MAX_BOT_REPLIES:
-        mark_handoff(user_id)
-        return None
+    if user['bot_replies'] >= MAX_BOT_REPLIES:
+        set_handoff(user_id, True)
+        return HANDOFF_MESSAGE
 
-    now = time.time()
-    if now - user.get("last_reply_time", 0) < MIN_SECONDS_BETWEEN_REPLIES:
-        print("Kısa sürede tekrar event geldi, cevap atlanıyor.", flush=True)
-        return None
-
-    # Manuel devretme öncesi: müşteri sorum kalmadı derse bitir.
-    if user.get("asked_more_questions") and no_more_questions(text):
-        mark_handoff(user_id)
-        register_bot_reply(user_id)
-        return FINAL_HANDOFF_MESSAGE
-
-    update_state(user, text, has_photo)
-
-    # Görsel geldiyse tekrar foto isteme; direkt doğru bağlamı ver.
-    if has_photo:
-        base = "Fotoğrafınızı aldım 😊 Tasarım ekibimiz bu görsele uygun çalışma hazırlayabilir."
-        if not user.get("model"):
-            reply = base + "\n\nHangi telefon modeli için olacak?"
-        else:
-            user["asked_more_questions"] = True
-            reply = base + "\n\nAklınıza takılan başka bir soru var mı? 😊"
-        add_history(user_id, "user", "Müşteri fotoğraf gönderdi.")
-        add_history(user_id, "assistant", reply)
-        register_bot_reply(user_id)
-        return reply
-
-    direct = direct_answer(text)
-    if direct:
-        reply = maybe_state_followup(user, direct)
-        add_history(user_id, "user", text)
-        add_history(user_id, "assistant", reply)
-        register_bot_reply(user_id)
-        return reply
-
-    conversation = build_conversation(user, text, has_photo)
-
-    response = client.responses.create(
-        model=OPENAI_MODEL,
-        instructions=SYSTEM_PROMPT,
-        input=conversation,
-        max_output_tokens=220,
+    # Durum güncelle
+    update_facts(
+        user_id,
+        model=detect_phone_model(text),
+        design=detect_design(text, has_photo),
+        photo=has_photo,
     )
-    raw = response.output_text.strip()
-    print("GPT RAW:", raw, flush=True)
+    user = get_user(user_id)
 
-    try:
-        parsed = json.loads(raw)
-        reply = (parsed.get("reply") or "").strip()
-        handoff = bool(parsed.get("handoff", False))
-        facts = parsed.get("facts") or {}
-        if facts.get("model"):
-            user["model"] = True
-        if facts.get("design"):
-            user["design"] = True
-        if facts.get("photo"):
-            user["photo"] = True
-        if facts.get("asked_if_more_questions"):
-            user["asked_more_questions"] = True
-    except Exception:
-        reply = raw
+    if user['model'] and user['design'] and user['asked_more_questions'] and detect_no_more_questions(text):
+        set_handoff(user_id, True)
+        return HANDOFF_MESSAGE
+
+    direct = _direct_reply(user_id, text)
+    if direct:
+        reply = direct
         handoff = False
+    else:
+        if has_photo:
+            text = text + '\nMüşteri görsel/fotoğraf gönderdi.'
+
+        append_history(user_id, 'user', text)
+        user = get_user(user_id)
+
+        conversation = f'Müşteri durumu: {_state_text(user_id)}\n\n'
+        for msg in user['history'][-8:]:
+            role = 'Müşteri' if msg['role'] == 'user' else 'KilifStoria'
+            conversation += f'{role}: {msg["content"]}\n'
+
+        if not client:
+            raise RuntimeError('OPENAI_API_KEY eksik. Render Environment içine OPENAI_API_KEY eklenmeli.')
+
+        response = client.responses.create(
+            model=OPENAI_MODEL,
+            instructions=SYSTEM_PROMPT,
+            input=conversation,
+            max_output_tokens=180,
+        )
+
+        raw = response.output_text.strip()
+        print('GPT RAW:', raw, flush=True)
+
+        try:
+            parsed = json.loads(raw)
+            reply = (parsed.get('reply') or '').strip()
+            handoff = bool(parsed.get('handoff', False))
+            facts = parsed.get('facts') or {}
+            update_facts(
+                user_id,
+                model=facts.get('model'),
+                design=facts.get('design'),
+                photo=facts.get('photo'),
+                asked_more_questions=facts.get('asked_more_questions'),
+            )
+        except Exception:
+            reply = raw
+            handoff = False
+
+    user = get_user(user_id)
 
     if not reply:
-        reply = "Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?"
+        reply = 'Merhaba 😊 Hangi telefon modeli için kılıf düşünüyorsunuz?'
 
-    # Gereken iki bilgi tamamlandıysa, hemen kapatma; önce başka soru var mı diye sor.
-    if user.get("model") and user.get("design") and not user.get("asked_more_questions"):
-        user["asked_more_questions"] = True
-        reply = "Çok güzel 😊 Aklınıza takılan başka bir soru var mı?"
-        handoff = False
+    # Model + tasarım tamamlandıysa, önce son soru fırsatı ver.
+    if user['model'] and user['design'] and not user['asked_more_questions'] and not handoff:
+        user['asked_more_questions'] = True
+        if 'aklınıza takılan' not in reply.lower():
+            reply += '\n\nAklınıza takılan başka bir soru var mı? 😊'
 
     if handoff:
-        reply = FINAL_HANDOFF_MESSAGE
-        mark_handoff(user_id)
+        set_handoff(user_id, True)
+        reply = HANDOFF_MESSAGE
 
-    add_history(user_id, "user", text)
-    add_history(user_id, "assistant", reply)
-    register_bot_reply(user_id)
+    user['bot_replies'] += 1
+    user['last_reply_time'] = time.time()
+    append_history(user_id, 'assistant', reply)
+
     return reply

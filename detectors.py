@@ -1,68 +1,78 @@
 import re
-from knowledge import PRICE_TEXT, SHOPIER_URL
 
-MODEL_WORDS = [
-    "iphone", "samsung", "xiaomi", "redmi", "oppo", "tecno", "realme",
-    "huawei", "honor", "vivo", "infinix", "poco", "reeder", "galaxy",
+PHONE_WORDS = [
+    'iphone', 'samsung', 'xiaomi', 'redmi', 'oppo', 'tecno', 'realme', 'huawei',
+    'honor', 'vivo', 'reeder', 'infinix', 'poco', 'galaxy', 'note', 'pro',
+    'max', 'plus', 'mini', 's3', 's4', 's5', 'a10', 'a20', 'a30', 'a50', 'a55',
+    'a54', 'a34', 's23', 's24', 's25'
 ]
 
 DESIGN_WORDS = [
-    "foto", "fotoğraf", "fotograf", "resim", "kendi", "isim", "isimli",
-    "özel", "ozel", "sayfadaki", "tasarım", "tasarim", "model", "renk",
+    'foto', 'fotoğraf', 'fotograf', 'resim', 'kendi foto', 'kendi resim',
+    'isim', 'isimli', 'özel', 'ozel', 'sayfadaki', 'sayfanızdaki', 'tasarım',
+    'tasarim', 'model beğendim', 'model begendim', 'bunu istiyorum',
+    'bu olsun', 'aynısı', 'aynisi', 'logo', 'yazı', 'yazi'
 ]
 
-NO_MORE_WORDS = ["yok", "tamam", "sağol", "sagol", "teşekkür", "tesekkur", "olur", "ok", "eyvallah"]
+NO_MORE_WORDS = [
+    'yok', 'yoktur', 'tamam', 'olur', 'teşekkür', 'tesekkur', 'sağ ol',
+    'sag ol', 'anladım', 'anladim', 'başka yok', 'baska yok', 'soru yok'
+]
+
+GREETING_WORDS = ['merhaba', 'selam', 'sa', 'slm', 'mrb', 'hello', 'hi']
 
 
 def normalize(text: str) -> str:
-    return (text or "").lower().strip()
+    return (text or '').lower().strip()
 
 
-def has_phone_model(text: str) -> bool:
+def has_any(text: str, words) -> bool:
     t = normalize(text)
-    if any(w in t for w in MODEL_WORDS):
+    return any(w in t for w in words)
+
+
+def detect_phone_model(text: str) -> bool:
+    t = normalize(text)
+    if len(t) < 2:
+        return False
+    if has_any(t, PHONE_WORDS):
         return True
-    # iPhone 13 gibi kısa model cevapları için: yalnızca rakam/pro/max/a55 vb.
-    if re.search(r"\b(1[1-6]|[as]\d{2}|s2[0-9]|note\s?\d+|pro|max|plus)\b", t):
+    # Tek başına iPhone numarası gibi yazımlar: "13", "15 pro" vb.
+    if re.search(r'\b(iphone\s*)?(1[1-6]|xr|xs|se)\b', t):
         return True
     return False
 
 
-def has_design(text: str) -> bool:
+def detect_design(text: str, has_photo: bool = False) -> bool:
+    if has_photo:
+        return True
+    return has_any(text, DESIGN_WORDS)
+
+
+def detect_no_more_questions(text: str) -> bool:
+    return has_any(text, NO_MORE_WORDS)
+
+
+def detect_intent(text: str):
     t = normalize(text)
-    return any(w in t for w in DESIGN_WORDS) or t in {"1", "2", "3", "4"}
 
-
-def no_more_questions(text: str) -> bool:
-    t = normalize(text)
-    return any(w in t for w in NO_MORE_WORDS) and len(t) <= 40
-
-
-def direct_answer(text: str) -> str | None:
-    t = normalize(text)
-
-    if any(x in t for x in ["fiyat", "kaç", "kac", "ücret", "ucret", "tl", "para"]):
-        return PRICE_TEXT
-
-    if any(x in t for x in ["kargo", "hangi firma", "firma", "ptt"]):
-        return "Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut."
-
-    if any(x in t for x in ["teslimat", "kaç gün", "kac gun", "ne zaman gelir", "kaç günde", "kac gunde"]):
-        return "Siparişiniz ertesi gün hazırlanır. Teslimat ortalama 4 iş günü içinde gerçekleşir 😊"
-
-    if any(x in t for x in ["ödeme", "odeme", "shopier", "havale", "kapıda", "kapida"]):
-        return f"Ödeme seçeneklerimiz mevcut 😊 Havale/EFT, kapıda ödeme veya Shopier üzerinden güvenli ödeme yapabilirsiniz.\n\nShopier: {SHOPIER_URL}"
-
-    if any(x in t for x in ["telefonuma uygun", "model yok", "cihazım yok", "cihazim yok", "uygun model yok"]):
-        return "Hiç sorun değil 😊 Sayfamızdaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı seçmeniz yeterli, biz tüm telefon marka ve modellerine uygun şekilde hazırlıyoruz."
-
-    if any(x in t for x in ["tasarımları", "tasarimlari", "modelleri", "örnekleri", "ornekleri", "nereden bak", "görmek", "goreyim"]):
-        return f"Elbette 😊 Tasarımlarımızı Instagram profilimizden veya Shopier mağazamızdan inceleyebilirsiniz.\n\n🛍️ {SHOPIER_URL}"
-
-    if any(x in t for x in ["baskı", "baski", "silinir", "solar", "solma", "çıkar", "cikar", "kaliteli", "uv", "lazer"]):
-        return "Baskılarımız UV (Lazer UV) baskı teknolojisi ile kılıflara işleniyor 😊 Normal kullanımda solma, silinme veya çıkma yapmaz."
-
-    if any(x in t for x in ["nerede", "yeriniz", "konum", "mağaza", "magaza", "şehir", "sehir"]):
-        return "Adana'da hizmet veriyoruz 😊 Siparişlerimizi PTT Kargo ile Türkiye'nin 81 iline ücretsiz gönderiyoruz."
+    if any(x in t for x in ['telefonuma uygun', 'model yok', 'cihazım yok', 'cihazim yok', 'uygun model yok']):
+        return 'model_missing'
+    if any(x in t for x in ['fiyat', 'kaç', 'kac', 'ücret', 'ucret', 'tl', 'para']):
+        return 'price'
+    if any(x in t for x in ['kargo', 'hangi firma', 'ptt']):
+        return 'cargo'
+    if any(x in t for x in ['teslimat', 'kaç gün', 'kac gun', 'ne zaman gelir', 'kaç günde', 'kac gunde']):
+        return 'delivery'
+    if any(x in t for x in ['ödeme', 'odeme', 'shopier', 'havale', 'kapıda', 'kapida']):
+        return 'payment'
+    if any(x in t for x in ['kaliteli', 'baskı', 'baski', 'solma', 'silinir', 'çıkar', 'cikar', 'çıkma', 'cikma']):
+        return 'quality'
+    if any(x in t for x in ['tasarımları', 'tasarimlari', 'modelleri', 'nereden bak', 'görmek', 'ornek', 'örnek']):
+        return 'designs'
+    if any(x in t for x in ['yeriniz', 'nerede', 'konum', 'mağaza', 'magaza', 'adana']):
+        return 'location'
+    if any(x in t for x in ['dolandırıcı', 'dolandirici', 'güvenilir', 'guvenilir', 'sahte']):
+        return 'trust'
 
     return None

@@ -1,97 +1,60 @@
-SHOPIER_URL = "www.shopier.com/kilifstorie"
+SHOP_NAME = 'KilifStoria'
+LOCATION = 'Adana'
+SHOPIER_URL = 'www.shopier.com/kilifstorie'
+CARGO_COMPANY = 'PTT Kargo'
+DELIVERY = 'Ortalama 4 iş günü'
+PREPARATION = 'Siparişler ertesi gün hazırlanır'
+FREE_SHIPPING = 'Türkiye’nin 81 iline ücretsiz kargo'
 
-BUSINESS_FACTS = {
-    "location": "Adana",
-    "cargo_company": "PTT Kargo",
-    "shipping": "Türkiye'nin 81 iline ücretsiz kargo",
-    "preparation_time": "Sipariş ertesi gün hazırlanır",
-    "delivery_time": "Teslimat ortalama 4 iş günü",
-    "payment_methods": ["Havale/EFT", "Kapıda ödeme", "Shopier"],
-    "print_method": "UV (Lazer UV) baskı",
-    "print_quality": "Normal kullanımda solma, silinme veya çıkma yapmaz",
-    "all_models": "Tüm telefon marka ve modellerine üretim yapılır",
-    "sample_designs": "Sayfadaki telefon modelleri sadece örnek tasarımdır; müşteri beğendiği tasarımı seçer, biz kendi cihazına uygun hazırlarız.",
-}
+PRICES_TEXT = '''Fiyatlarımız şöyle 😊
 
-PRICE_TEXT = (
-    "Fiyatlarımız şöyle 😊\n\n"
-    "💸 Havale / EFT\n"
-    "• Tek Kılıf 345₺\n"
-    "• 2 Adet ve Üzeri 265₺ / Adet\n\n"
-    "💸 Kapıda Ödeme\n"
-    "• Tek Kılıf 425₺\n"
-    "• 2 Adet ve Üzeri 345₺ / Adet\n\n"
-    "🚚 81 ile ücretsiz kargo.\n"
-    "🔥 Havale ödemede en avantajlı fiyat.\n"
-    "🎁 2 ve üzeri siparişlerde büyük fiyat avantajı."
-)
-
-SYSTEM_PROMPT = f"""
-Sen KilifStoria'nın Instagram DM karşılama asistanısın.
-
-Ana görevin:
-- Müşteriyi sıcak ve doğal karşılamak.
-- Telefon modelini öğrenmek.
-- Ne istediğini öğrenmek:
-  1) Sayfadaki tasarımlardan biri
-  2) Kendi fotoğrafı
-  3) İsimli tasarım
-  4) Özel tasarım
-- Fiyat, kargo, ödeme, teslimat ve baskı kalitesi gibi temel soruları doğru cevaplamak.
-- Sohbeti devretmeden önce müşterinin aklında başka soru olup olmadığını öğrenmek.
-- Müşterinin sorusu kalmadığında sadece şu mesajla devretmek:
-"{__import__('config').FINAL_HANDOFF_MESSAGE}"
-
-İşletme bilgileri:
-- Hizmet yeri: Adana.
-- Tüm telefon marka ve modellerine üretim yapılır.
-- Sayfadaki telefon modelleri sadece örnek tasarımdır.
-- Beğenilen tasarım tüm cihazlara uyarlanır.
-- Kargo firması: PTT Kargo.
-- 81 ile ücretsiz kargo.
-- Sipariş ertesi gün hazırlanır.
-- Teslimat ortalama 4 iş günü.
-- Ödeme: Havale/EFT, kapıda ödeme, Shopier.
-- Shopier: {SHOPIER_URL}
-- Baskılar UV (Lazer UV) baskı teknolojisi ile yapılır.
-- Normal kullanımda baskılarda solma, silinme veya çıkma olmaz.
-
-Fiyat bilgisi:
-Havale/EFT:
+💸 Havale / EFT
 • Tek Kılıf 345₺
 • 2 Adet ve Üzeri 265₺ / Adet
-Kapıda ödeme:
+
+💸 Kapıda Ödeme
 • Tek Kılıf 425₺
 • 2 Adet ve Üzeri 345₺ / Adet
 
-Konuşma tarzı:
-- Türkçe konuş.
-- Samimi, sıcak, kısa ve doğal ol.
-- Robot gibi davranma.
-- Gereksiz uzun yazma.
-- Aynı cümleleri sürekli tekrar etme.
-- Uydurma bilgi verme.
-- Sipariş alma aşamasına geçme.
-- Adres, telefon, ad-soyad isteme.
-- IBAN veya ödeme talimatı verme.
-- Tasarım hazırladığını iddia etme.
+🚚 81 ile ücretsiz kargo.
+🔥 Havale ödemede en avantajlı fiyat.
+🎁 2 ve üzeri siparişlerde büyük fiyat avantajı.'''
 
-Özel kurallar:
-- Müşteri görsel/fotoğraf gönderirse bunu gönderilmiş kabul et; tekrar fotoğraf isteme.
-- Müşteri “telefonuma uygun model yok” derse, sayfadaki modellerin sadece örnek tasarım olduğunu ve tüm cihazlara üretim yapıldığını açıkla.
-- Müşteri tasarımları görmek isterse Instagram profiline veya Shopier sayfasına yönlendir.
-- Telefon modeli + tasarım türü öğrenildiyse hemen devretme; önce kısa şekilde “Aklınıza takılan başka bir soru var mı?” diye sor.
-- Müşteri “yok, tamam, sağol, teşekkürler” gibi sorusu kalmadığını belirtirse final devretme mesajını ver.
+HANDOFF_MESSAGE = 'Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak.'
 
-Cevabı SADECE JSON formatında ver:
-{{
-  "reply": "müşteriye gönderilecek kısa mesaj",
-  "handoff": true veya false,
-  "facts": {{
-    "model": true/false,
-    "design": true/false,
-    "photo": true/false,
-    "asked_if_more_questions": true/false
-  }}
-}}
-"""
+BUSINESS_FACTS = f'''
+İşletme: {SHOP_NAME}
+Hizmet yeri: {LOCATION}
+Kargo: {CARGO_COMPANY}
+Gönderim: {FREE_SHIPPING}
+Hazırlık: {PREPARATION}
+Teslimat: {DELIVERY}
+Ödeme seçenekleri: Havale/EFT, kapıda ödeme, Shopier
+Shopier: {SHOPIER_URL}
+
+Telefon ve tasarım bilgisi:
+- Tüm telefon marka ve modellerine üretim yapılır.
+- Sayfadaki telefon modelleri sadece örnek tasarımdır.
+- Müşteri beğendiği tasarımı seçer; tasarım kendi cihazına uygun hazırlanır.
+- Tasarım türleri: sayfadaki tasarımlardan biri, kendi fotoğrafı, isimli tasarım, özel tasarım.
+
+Baskı kalitesi:
+- Baskılar UV / Lazer UV baskı teknolojisi ile kılıfa işlenir.
+- Normal kullanımda solma, silinme veya çıkma olmaz.
+- Uzun ömürlü baskı kullanılır.
+
+Fiyatlar:
+{PRICES_TEXT}
+'''
+
+DIRECT_ANSWERS = {
+    'price': PRICES_TEXT,
+    'cargo': 'Gönderimlerimizi PTT Kargo ile sağlıyoruz 😊 81 ile ücretsiz kargo mevcut.',
+    'delivery': 'Siparişler ertesi gün hazırlanır. Teslimat ortalama 4 iş günü içinde gerçekleşir 😊',
+    'payment': f'Ödeme seçeneklerimiz mevcut 😊 Havale/EFT, kapıda ödeme veya Shopier üzerinden güvenli ödeme yapabilirsiniz.\n\nShopier: {SHOPIER_URL}',
+    'quality': 'Evet 😊 Baskılarımız UV / Lazer UV baskı teknolojisi ile kılıfa işleniyor. Normal kullanımda solma, silinme veya çıkma olmaz.',
+    'model_missing': 'Hiç sorun değil 😊 Sayfamızdaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı seçmeniz yeterli, biz tüm telefon marka ve modellerine uygun şekilde hazırlıyoruz.',
+    'designs': f'Elbette 😊 Tasarımlarımızı Instagram profilimizden veya Shopier mağazamızdan inceleyebilirsiniz.\n\n🛍️ {SHOPIER_URL}',
+    'location': 'Adana’da hizmet veriyoruz 😊 Siparişleri PTT Kargo ile Türkiye’nin 81 iline ücretsiz gönderiyoruz.',
+    'trust': 'Bunu sormanız çok normal 😊 Ödemeyi Shopier, havale/EFT veya kapıda ödeme ile yapabilirsiniz. Ayrıca siparişlerde PTT Kargo ile gönderim sağlıyoruz.',
+}
