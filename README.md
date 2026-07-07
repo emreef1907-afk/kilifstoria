@@ -1,42 +1,21 @@
-# KilifStoria AI V4
+# KilifStoria AI V5 Blueprint
 
-Bu sürüm, konuşmada belirlenen tüm kurallara göre hazırlandı:
+Bu sürüm V4 üzerine geliştirme planıdır.
 
-- Aynı `mid` sadece 1 kez işlenir.
-- Aynı içerik kısa sürede tekrar gelirse cevap verilmez.
-- Aynı cevap kısa sürede tekrar gönderilmez.
-- Bot kendi echo mesajında susmaz.
-- Emre manuel yazarsa bot o müşteride susar.
-- Cevaplar 8-15 saniye gecikmeli gönderilir.
-- Mesaj sınırı yoktur; bot müşteri hazır olunca devreder.
-- Sipariş almaz, adres/telefon/ad-soyad istemez.
-- Kapanış mesajı sadece: `Tasarım ve sipariş işlemi için ekip arkadaşımız birazdan size dönüş yapacak.`
+Yeni hedefler:
+- Decision Engine
+- Spam katmanı
+- Guard katmanı güçlendirme
+- Shopier yönlendirme iyileştirmesi
+- Doğal sohbet
+- Mesaj sınırı kaldırıldı
+- Müşteri hazır olunca devretme
+- Sipariş almama
+- Adres/telefon istememe
 
-## Dosyalar
+Yeni önerilen dosyalar:
+- decision_engine.py
+- spam.py
+- logger.py
 
-- `app.py`: Flask webhook ve Meta event yönetimi
-- `assistant.py`: GPT karar motoru ve konuşma akışı
-- `detectors.py`: niyet/model/tasarım algılama
-- `guard.py`: yasak cevap denetleyici
-- `instagram.py`: Instagram mesaj gönderme
-- `knowledge.py`: firma bilgileri ve fiyatlar
-- `memory.py`: müşteri hafızası ve spam koruması
-- `config.py`: ayarlar
-
-## Kurulum
-
-`.env` dosyanızda şunlar olmalı:
-
-```env
-VERIFY_TOKEN=emre123
-ACCESS_TOKEN=IGAA...
-OPENAI_API_KEY=sk-proj-...
-```
-
-Deploy:
-
-```powershell
-git add .
-git commit -m "kilifstoria ai v4"
-git push
-```
+Not: Bu paket mevcut V4 üzerine mimari geliştirme iskeletidir.
