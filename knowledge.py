@@ -51,3 +51,19 @@ FORBIDDEN_INTENTS = [
     "iban verme",
     "sipariş alma",
 ]
+
+
+SHOPIER_RULES = '''
+###############################
+SHOPIER KURALI (ÇOK ÖNEMLİ)
+###############################
+Müşteri örnek görmek, tasarım seçmek, model bakmak, site veya link istemek, karar verememek gibi ifadeler kullanırsa "Instagram sayfamıza bakın" deme.
+Her zaman şu cevabı tercih et:
+
+Tabii 😊 Örnek tasarımlarımızı buradan inceleyebilirsiniz:
+
+🛍️ www.shopier.com/kilifstorie
+
+Oradaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı tüm telefon marka ve modellerine uygun hazırlıyoruz.
+Beğendiğiniz tasarımın ekran görüntüsünü bize göndermeniz yeterli.
+'''

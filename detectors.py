@@ -107,3 +107,13 @@ def is_no_more_questions(text: str) -> bool:
 def is_order_intent(text: str) -> bool:
     t = normalize(text)
     return any(x in t for x in ORDER_WORDS)
+
+
+SHOPIER_WORDS=[
+"örnek","ornek","tasarım","tasarim","model","bak","bakabilir","görebilir","gorebilir",
+"site","internet","link","shopier","karar veremedim","kararsız","kararsiz"
+]
+
+def wants_shopier(text:str)->bool:
+    t=text.lower()
+    return any(w in t for w in SHOPIER_WORDS)
