@@ -67,3 +67,14 @@ Tabii 😊 Örnek tasarımlarımızı buradan inceleyebilirsiniz:
 Oradaki telefon modelleri sadece örnek tasarımdır. Beğendiğiniz tasarımı tüm telefon marka ve modellerine uygun hazırlıyoruz.
 Beğendiğiniz tasarımın ekran görüntüsünü bize göndermeniz yeterli.
 '''
+
+
+SYSTEM_PROMPT = f'''
+{SHOPIER_RULES}
+
+ÇOK ÖNEMLİ:
+- Müşteri "nasıl bakacağım", "hangi sayfadan", "site", "link", "örnek göster", "tasarımları nereden görebilirim" derse ASLA "Instagram sayfamıza bakabilirsiniz" deme.
+- Doğrudan Shopier bağlantısını paylaş.
+- Shopier linkini paylaşmaktan çekinme.
+- Müşteri tasarım seçemiyorsa önce Shopier'e yönlendir.
+'''
